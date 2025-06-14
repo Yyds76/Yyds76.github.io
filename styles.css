@@ -232,16 +232,41 @@ header h1 {
   border-color: transparent;
 }
 
+.file-info {
+  flex: 1;
+  min-width: 0;
+}
+
 .file-name {
   font-weight: 500;
   display: flex;
   align-items: center;
   gap: 8px;
+  margin-bottom: 4px;
+}
+
+.file-meta {
+  color: #718096;
+  font-size: 12px;
+}
+
+.file-item.active .file-meta {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.error-badge {
+  background: #e53e3e;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
 }
 
 .file-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .file-actions button {
@@ -264,31 +289,14 @@ header h1 {
   transform: translateY(-1px);
 }
 
-.delete-btn {
-  background: #e53e3e;
+.refresh-btn {
+  background: #3182ce;
   color: white;
 }
 
-.delete-btn:hover {
-  background: #c53030;
+.refresh-btn:hover {
+  background: #2c5aa0;
   transform: translateY(-1px);
-}
-
-.add-file-btn {
-  width: 100%;
-  padding: 15px;
-  background: linear-gradient(135deg, #38a169, #2f855a);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.add-file-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(56, 161, 105, 0.3);
 }
 
 .main-content {
@@ -352,15 +360,34 @@ header h1 {
 .file-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 20px;
   padding-bottom: 15px;
   border-bottom: 2px solid #e2e8f0;
 }
 
+.file-title {
+  flex: 1;
+}
+
+.file-title h3 {
+  margin-bottom: 8px;
+}
+
+.file-info-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.file-info-badge small {
+  color: #718096;
+}
+
 .file-controls {
   display: flex;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .file-controls button {
@@ -394,16 +421,20 @@ header h1 {
   line-height: 1.5;
 }
 
-.code-editor {
-  width: 100%;
-  height: 400px;
-  font-family: "Monaco", "Menlo", "Courier New", monospace;
-  border: 1px solid #ddd;
-  border-radius: 5px;
-  padding: 15px;
-  resize: vertical;
-  font-size: 14px;
-  line-height: 1.5;
+/* 加载和空状态 */
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #718096;
+}
+
+.loading-state .loading {
+  margin: 0 auto 20px;
+}
+
+.empty-state p {
+  margin: 10px 0;
 }
 
 /* Raw模式样式 */
@@ -517,6 +548,17 @@ header h1 {
     align-items: flex-start;
     gap: 15px;
   }
+
+  .file-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .file-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
 }
 
 /* 动画效果 */
@@ -540,14 +582,46 @@ header h1 {
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
+  border: 3px solid rgba(102, 126, 234, 0.3);
   border-radius: 50%;
-  border-top-color: white;
+  border-top-color: #667eea;
   animation: spin 1s ease-in-out infinite;
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* 状态指示器 */
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+}
+
+.status-indicator.online {
+  background: #38a169;
+}
+
+.status-indicator.offline {
+  background: #e53e3e;
+}
+
+.status-indicator.loading {
+  background: #3182ce;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }
