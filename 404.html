@@ -260,7 +260,7 @@
 
             // 验证API密钥
             if (apiKey !== CONFIG.apiKey) {
-                document.body.innerHTML = '<pre>Error: Invalid API key</pre>';
+                document.body.innerHTML = '<pre>-- Error: Invalid API key</pre>';
                 return;
             }
 
@@ -271,13 +271,50 @@
             );
 
             if (!isRoblox) {
-                document.body.innerHTML = '<pre>Error: Unauthorized origin</pre>';
+                document.body.innerHTML = '<pre>-- Error: Unauthorized origin</pre>';
                 return;
             }
 
             try {
-                if (path.startsWith('/api/file/')) {
-                    // 获取单个文件
+                if (path.startsWith('/exec/')) {
+                    // 直接执行URL - 返回纯Lua代码
+                    const fileId = path.split('/exec/')[1];
+                    const files = await githubManager.getFileList();
+                    let targetFilename = null;
+
+                    files.forEach((file, index) => {
+                        const secureId = githubManager.generateSecureFileId(file.name, index);
+                        if (secureId === fileId) {
+                            targetFilename = file.name;
+                        }
+                    });
+
+                    if (!targetFilename) {
+                        document.body.innerHTML = '<pre>-- Error: File not found</pre>';
+                        return;
+                    }
+
+                    // 只返回.lua文件的内容
+                    if (!targetFilename.endsWith('.lua')) {
+                        document.body.innerHTML = '<pre>-- Error: Only Lua files can be executed directly</pre>';
+                        return;
+                    }
+
+                    const content = await githubManager.getFileContent(targetFilename);
+                    if (content) {
+                        // 直接返回Lua代码内容，不包装在JSON中
+                        document.body.innerHTML = '';
+                        document.body.textContent = content;
+                        document.body.style.fontFamily = 'monospace';
+                        document.body.style.whiteSpace = 'pre';
+                        document.body.style.margin = '0';
+                        document.body.style.padding = '0';
+                    } else {
+                        document.body.innerHTML = '<pre>-- Error: Failed to fetch file content</pre>';
+                    }
+
+                } else if (path.startsWith('/api/file/')) {
+                    // 原有的API文件访问逻辑保持不变
                     const fileId = path.split('/api/file/')[1];
                     const files = await githubManager.getFileList();
                     let targetFilename = null;
@@ -308,7 +345,7 @@
                     }
 
                 } else if (path === '/api/list') {
-                    // 获取文件列表
+                    // 原有的文件列表API逻辑保持不变
                     const files = await githubManager.getFileList();
                     const fileList = files.map((file, index) => ({
                         filename: file.name,
@@ -322,84 +359,10 @@
                         count: fileList.length
                     };
                     document.body.innerHTML = `<pre>${JSON.stringify(result)}</pre>`;
-                } else if (path.startsWith('/exec/')) {
-                    // 直接执行端点 - 返回纯Lua代码
-                    const fileId = path.split('/exec/')[1];
-                    const files = await githubManager.getFileList();
-                    let targetFilename = null;
-
-                    files.forEach((file, index) => {
-                        const secureId = githubManager.generateSecureFileId(file.name, index);
-                        if (secureId === fileId) {
-                            targetFilename = file.name;
-                        }
-                    });
-
-                    if (!targetFilename) {
-                        document.body.innerHTML = '-- 错误: 文件未找到\nprint("❌ 文件不存在")';
-                        return;
-                    }
-
-                    // 只处理.lua文件
-                    if (!targetFilename.endsWith('.lua')) {
-                        document.body.innerHTML = '-- 错误: 只支持Lua文件\nprint("❌ 只支持.lua文件")';
-                        return;
-                    }
-
-                    const content = await githubManager.getFileContent(targetFilename);
-                    if (content) {
-                        // 添加执行日志
-                        const wrappedContent = `-- 🚀 Yyds76 远程脚本: ${targetFilename}
--- 执行时间: ${new Date().toLocaleString()}
-print("🚀 [Yyds76] 开始执行: ${targetFilename}")
-
-${content}
-
-print("✅ [Yyds76] 脚本执行完成: ${targetFilename}")`;
-                        
-                        document.body.innerHTML = `<pre>${wrappedContent}</pre>`;
-                        document.body.style.fontFamily = 'monospace';
-                        document.body.style.whiteSpace = 'pre';
-                        document.body.style.margin = '0';
-                        document.body.style.padding = '0';
-                    } else {
-                        document.body.innerHTML = '-- 错误: 无法获取文件内容\nprint("❌ 无法获取文件内容")';
-                    }
-
-                } else if (path.startsWith('/list-exec')) {
-                    // 获取可执行文件列表（只返回.lua文件）
-                    const files = await githubManager.getFileList();
-                    const luaFiles = files.filter(file => file.name.endsWith('.lua'));
-                    
-                    let listContent = `-- 🚀 Yyds76 可执行文件列表
--- 生成时间: ${new Date().toLocaleString()}
--- 总共 ${luaFiles.length} 个Lua文件
-
-print("📁 可用的Lua脚本:")
-print("=" .. string.rep("=", 40))
-`;
-
-                    luaFiles.forEach((file, index) => {
-                        const secureId = githubManager.generateSecureFileId(file.name, index);
-                        listContent += `print("  ${index + 1}. 🌙 ${file.name}")
-print("     URL: https://${window.location.host}/exec/${secureId}?k=${CONFIG.apiKey}")
-`;
-                    });
-
-                    listContent += `print("=" .. string.rep("=", 40))
-print("使用方法:")
-print('loadstring(game:HttpGet("URL"))()') 
-`;
-
-                    document.body.innerHTML = `<pre>${listContent}</pre>`;
-                    document.body.style.fontFamily = 'monospace';
-                    document.body.style.whiteSpace = 'pre';
-                    document.body.style.margin = '0';
-                    document.body.style.padding = '0';
                 }
 
             } catch (error) {
-                document.body.innerHTML = '<pre>{"error": "Internal server error", "code": 500}</pre>';
+                document.body.innerHTML = '<pre>-- Error: Internal server error</pre>';
             }
         }
 
@@ -410,8 +373,8 @@ print('loadstring(game:HttpGet("URL"))()')
             if (path.startsWith('/view/')) {
                 // Raw文件访问
                 await handleRawAccess();
-            } else if (path.startsWith('/api/')) {
-                // API访问
+            } else if (path.startsWith('/api/') || path.startsWith('/exec/')) {
+                // API访问和执行URL访问
                 await handleApiAccess();
             } else {
                 // 其他路径重定向到主页
