@@ -191,8 +191,9 @@
             font-family: 'Courier New', monospace;
             white-space: pre-wrap;
             margin: 0;
-            padding: 0;
+            padding: 15px;
             line-height: 1.4;
+            min-height: 100vh;
         }
 
         /* 访问拒绝页面样式 */
@@ -227,6 +228,29 @@
             cursor: pointer;
             font-size: 16px;
         }
+
+        /* 加载动画 */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #666;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -258,6 +282,11 @@
                 <!-- 文件列表将在这里动态生成 -->
             </div>
         </div>
+    </div>
+
+    <!-- Raw查看容器 -->
+    <div id="rawContainer" class="hidden">
+        <div id="rawContent" class="raw-container"></div>
     </div>
 
     <script>
@@ -360,13 +389,13 @@
                 if (loginTime && (currentTime - parseInt(loginTime)) > 30 * 60 * 1000) {
                     sessionStorage.removeItem('authenticated');
                     sessionStorage.removeItem('loginTime');
-                    if (window.location.pathname !== '/') {
-                        window.location.href = '/';
+                    if (window.location.hash.startsWith('#/view/')) {
+                        showAccessDenied();
                     }
                 }
                 
-                // 如果在受保护页面但未登录，重定向到登录页
-                if (!isLoggedIn && (window.location.pathname.startsWith('/view/') || window.location.pathname.startsWith('/raw/'))) {
+                // 如果在受保护页面但未登录，显示拒绝访问
+                if (!isLoggedIn && window.location.hash.startsWith('#/view/')) {
                     showAccessDenied();
                 }
             }, 5000); // 每5秒检查一次
@@ -374,21 +403,29 @@
 
         // 显示访问拒绝页面
         function showAccessDenied() {
+            hideAllContainers();
             document.body.innerHTML = `
                 <div class="access-denied">
                     <h1>🔒 访问被拒绝</h1>
                     <p>您需要先登录才能访问此内容</p>
                     <p>会话可能已过期，请重新登录</p>
-                    <button onclick="window.location.href='/'">返回登录页面</button>
+                    <button onclick="window.location.hash = ''; window.location.reload();">返回登录页面</button>
                 </div>
             `;
             document.body.style.background = '#f5f5f5';
         }
 
+        // 隐藏所有容器
+        function hideAllContainers() {
+            document.getElementById('loginContainer').classList.add('hidden');
+            document.getElementById('mainContainer').classList.add('hidden');
+            document.getElementById('rawContainer').classList.add('hidden');
+        }
+
         // 加载文件列表（修改为从GitHub获取）
         async function loadFileList() {
             const container = document.getElementById('fileListContainer');
-            container.innerHTML = '<div style="text-align: center; padding: 20px;">正在加载文件列表...</div>';
+            container.innerHTML = '<div class="loading">正在加载文件列表</div>';
 
             try {
                 const files = await githubManager.getFileList();
@@ -478,15 +515,80 @@
             }
         }
 
-        // Raw模式查看文件（修改为使用安全URL）
+        // Raw模式查看文件（修改为使用hash路由）
         function viewRaw(secureId) {
-            // 使用固定的URL结构，不暴露文件名
-            const rawUrl = `${window.location.origin}/view/${secureId}`;
-            window.open(rawUrl, '_blank');
+            // 使用hash路由，这样GitHub Pages可以处理
+            window.location.hash = `#/view/${secureId}`;
+        }
+
+        // 处理Raw访问（修改为使用hash路由和持续验证）
+        async function handleRawAccess(secureId) {
+            // 持续检查登录状态
+            const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
+            const loginTime = sessionStorage.getItem('loginTime');
+            const currentTime = Date.now();
+            
+            // 检查登录状态和会话有效性
+            if (!isLoggedIn || !loginTime || (currentTime - parseInt(loginTime)) > 30 * 60 * 1000) {
+                showAccessDenied();
+                return;
+            }
+
+            // 显示Raw容器
+            hideAllContainers();
+            document.getElementById('rawContainer').classList.remove('hidden');
+            
+            const rawContent = document.getElementById('rawContent');
+            rawContent.innerHTML = '<div class="loading">正在加载文件内容</div>';
+
+            try {
+                // 需要重新加载文件映射（因为可能是直接访问的URL）
+                if (fileIdMap.size === 0) {
+                    await loadFileMapping();
+                }
+                
+                const filename = fileIdMap.get(secureId);
+                
+                if (filename) {
+                    const content = await githubManager.getFileContent(filename);
+                    if (content) {
+                        // Raw模式只显示纯文本内容
+                        rawContent.textContent = content;
+                        rawContent.className = 'raw-container';
+                        
+                        // 继续监控登录状态
+                        startAuthCheck();
+                    } else {
+                        rawContent.innerHTML = '<h1 style="text-align: center; margin-top: 100px;">500 - 无法加载文件</h1>';
+                    }
+                } else {
+                    rawContent.innerHTML = '<h1 style="text-align: center; margin-top: 100px;">404 - 文件未找到</h1>';
+                }
+            } catch (error) {
+                rawContent.innerHTML = '<h1 style="text-align: center; margin-top: 100px;">500 - 服务器错误</h1>';
+                console.error('Raw访问错误:', error);
+            }
+        }
+
+        // 加载文件映射（用于Raw页面）
+        async function loadFileMapping() {
+            try {
+                const files = await githubManager.getFileList();
+                fileIdMap.clear();
+                reverseFileIdMap.clear();
+                
+                files.forEach((file, index) => {
+                    const secureId = githubManager.generateSecureFileId(file.name, index);
+                    fileIdMap.set(secureId, file.name);
+                    reverseFileIdMap.set(file.name, secureId);
+                });
+            } catch (error) {
+                console.error('加载文件映射失败:', error);
+            }
         }
 
         // API端点处理（修改为使用安全ID）
-        async function handleApiRequest(path, apiKey, userAgent) {
+        async function handleApiRequest(endpoint, apiKey, userAgent) {
             // 验证API密钥
             if (apiKey !== CONFIG.apiKey) {
                 return { error: 'Invalid API key', code: 401 };
@@ -498,9 +600,15 @@
             }
 
             try {
-                if (path.startsWith('/api/file/')) {
+                if (endpoint.startsWith('file/')) {
                     // 获取单个文件
-                    const secureId = path.split('/api/file/')[1];
+                    const secureId = endpoint.split('file/')[1];
+                    
+                    // 确保文件映射已加载
+                    if (fileIdMap.size === 0) {
+                        await loadFileMapping();
+                    }
+                    
                     const filename = fileIdMap.get(secureId);
                     
                     if (!filename) {
@@ -518,7 +626,7 @@
                         content: content,
                         fileId: secureId
                     };
-                } else if (path === '/api/list') {
+                } else if (endpoint === 'list') {
                     // 获取文件列表
                     const files = await githubManager.getFileList();
                     const fileList = files.map((file, index) => {
@@ -567,71 +675,6 @@
             return typeMap[extension] || 'unknown';
         }
 
-        // 处理Raw访问（修改为使用安全ID和持续验证）
-        async function handleRawAccess(path) {
-            // 持续检查登录状态
-            const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-            const loginTime = sessionStorage.getItem('loginTime');
-            const currentTime = Date.now();
-            
-            // 检查登录状态和会话有效性
-            if (!isLoggedIn || !loginTime || (currentTime - parseInt(loginTime)) > 30 * 60 * 1000) {
-                showAccessDenied();
-                return;
-            }
-
-            try {
-                const secureId = path.split('/view/')[1];
-                
-                // 需要重新加载文件映射（因为这是新页面）
-                await loadFileMapping();
-                
-                const filename = fileIdMap.get(secureId);
-                
-                if (filename) {
-                    const content = await githubManager.getFileContent(filename);
-                    if (content) {
-                        // Raw模式只显示纯文本内容
-                        document.body.innerHTML = content;
-                        document.body.className = 'raw-container';
-                        document.body.style.background = 'white';
-                        document.body.style.color = 'black';
-                        document.body.style.fontFamily = 'monospace';
-                        document.body.style.whiteSpace = 'pre-wrap';
-                        document.body.style.margin = '0';
-                        document.body.style.padding = '10px';
-                        
-                        // 继续监控登录状态
-                        startAuthCheck();
-                    } else {
-                        document.body.innerHTML = '<h1>500 - 无法加载文件</h1>';
-                    }
-                } else {
-                    document.body.innerHTML = '<h1>404 - 文件未找到</h1>';
-                }
-            } catch (error) {
-                document.body.innerHTML = '<h1>500 - 服务器错误</h1>';
-                console.error('Raw访问错误:', error);
-            }
-        }
-
-        // 加载文件映射（用于Raw页面）
-        async function loadFileMapping() {
-            try {
-                const files = await githubManager.getFileList();
-                fileIdMap.clear();
-                reverseFileIdMap.clear();
-                
-                files.forEach((file, index) => {
-                    const secureId = githubManager.generateSecureFileId(file.name, index);
-                    fileIdMap.set(secureId, file.name);
-                    reverseFileIdMap.set(file.name, secureId);
-                });
-            } catch (error) {
-                console.error('加载文件映射失败:', error);
-            }
-        }
-
         // 检查登录状态
         function checkAuth() {
             const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
@@ -663,14 +706,18 @@
 
         // 显示登录界面
         function showLoginInterface() {
+            hideAllContainers();
             document.getElementById('loginContainer').classList.remove('hidden');
-            document.getElementById('mainContainer').classList.add('hidden');
+            // 重置body样式
+            document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
         }
 
         // 显示主界面
         function showMainInterface() {
-            document.getElementById('loginContainer').classList.add('hidden');
+            hideAllContainers();
             document.getElementById('mainContainer').classList.remove('hidden');
+            // 重置body样式
+            document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
             loadFileList();
             startAuthCheck(); // 开始监控登录状态
         }
@@ -679,56 +726,50 @@
         function logout() {
             sessionStorage.removeItem('authenticated');
             sessionStorage.removeItem('loginTime');
+            window.location.hash = '';
             showLoginInterface();
         }
 
-        // 处理URL路由
-        function handleRouting() {
-            const path = window.location.pathname;
-            const params = new URLSearchParams(window.location.search);
+        // 处理hash路由变化
+        function handleHashChange() {
+            const hash = window.location.hash;
             
-            // Raw文件访问 - 使用 /view/{secureId} 格式
-            if (path.startsWith('/view/')) {
-                handleRawAccess(path);
-                return;
-            }
-
-            // API访问 - 隐藏密钥信息
-            if (path.startsWith('/api/')) {
-                const apiKey = params.get('k'); // 使用简短参数名
+            if (hash.startsWith('#/view/')) {
+                const secureId = hash.split('#/view/')[1];
+                handleRawAccess(secureId);
+            } else if (hash.startsWith('#/api/')) {
+                // API调用处理
+                const endpoint = hash.split('#/api/')[1];
+                const params = new URLSearchParams(window.location.search);
+                const apiKey = params.get('k');
                 const userAgent = navigator.userAgent;
                 
-                handleApiRequest(path, apiKey, userAgent).then(result => {
+                handleApiRequest(endpoint, apiKey, userAgent).then(result => {
+                    hideAllContainers();
                     if (result.error) {
-                        document.body.innerHTML = `<h1>Error: ${result.error}</h1>`;
+                        document.body.innerHTML = `<pre style="padding: 20px; background: white; color: black; font-family: monospace;">Error: ${result.error}</pre>`;
                     } else {
-                        document.body.innerHTML = `<pre>${result.content}</pre>`;
-                        document.body.style.background = 'white';
-                        document.body.style.color = 'black';
-                        document.body.style.fontFamily = 'monospace';
+                        document.body.innerHTML = `<pre style="padding: 0; margin: 0; background: white; color: black; font-family: monospace; white-space: pre-wrap;">${result.content}</pre>`;
                     }
                 });
-                return;
+            } else {
+                // 正常页面访问
+                checkAuth();
             }
-
-            // 正常页面访问
-            checkAuth();
         }
 
         // 页面加载时执行路由处理
-        window.addEventListener('load', handleRouting);
+        window.addEventListener('load', handleHashChange);
 
-        // 监听浏览器后退/前进按钮
-        window.addEventListener('popstate', handleRouting);
+        // 监听hash变化
+        window.addEventListener('hashchange', handleHashChange);
 
         // 页面可见性变化时检查登录状态
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
                 const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-                if (!isLoggedIn && (window.location.pathname.startsWith('/view/') || window.location.pathname === '/')) {
-                    if (window.location.pathname.startsWith('/view/')) {
-                        showAccessDenied();
-                    }
+                if (!isLoggedIn && window.location.hash.startsWith('#/view/')) {
+                    showAccessDenied();
                 }
             }
         });
