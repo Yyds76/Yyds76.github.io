@@ -431,42 +431,100 @@
         }
 
         // 处理Raw访问（修改为使用GitHub数据）
-        async function handleRawAccess(path) {
-            // 检查是否已登录
+        async function viewRaw(filename) {
+            // 检查登录状态
             if (sessionStorage.getItem('authenticated') !== 'true') {
-                document.body.innerHTML = `
-                    <div style="text-align: center; margin-top: 100px; font-family: Arial, sans-serif;">
-                        <h1>🔒 访问受限</h1>
-                        <p>请先登录才能查看文件内容</p>
-                        <button onclick="window.location.href='/'" 
-                                style="padding: 10px 20px; margin-top: 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                            返回登录
-                        </button>
-                    </div>
-                `;
+                alert('请先登录才能查看Raw内容');
                 return;
             }
-
+            
             try {
-                const fileId = path.split('/r/')[1];
-                const filename = await githubManager.getFilenameById(fileId);
-                
-                if (filename) {
-                    const content = await githubManager.getFileContent(filename);
-                    if (content) {
-                        // Raw模式只显示纯文本内容
-                        document.body.innerHTML = `<pre style="margin: 0; padding: 0; font-family: monospace; white-space: pre-wrap;">${content}</pre>`;
-                        document.body.style.background = 'white';
-                        document.body.style.color = 'black';
-                    } else {
-                        document.body.innerHTML = '<h1>500 - Failed to Load File</h1>';
-                    }
+                const content = await githubManager.getFileContent(filename);
+                if (content) {
+                    // 在新窗口中显示Raw内容
+                    const rawWindow = window.open('', '_blank');
+                    rawWindow.document.write(`
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                            <title>Raw: ${filename}</title>
+                            <style>
+                                body { 
+                                    margin: 0; 
+                                    padding: 0; 
+                                    font-family: monospace; 
+                                    background: white; 
+                                    color: black; 
+                                }
+                                pre { 
+                                    margin: 0; 
+                                    padding: 0; 
+                                    white-space: pre-wrap; 
+                                    word-wrap: break-word; 
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <pre>${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+                        </body>
+                        </html>
+                    `);
+                    rawWindow.document.close();
+                } else {
+                    alert('无法获取文件内容');
+                }
+            } catch (error) {
+                alert('获取文件失败: ' + error.message);
+            }
+        }
+
+        // 处理URL参数中的Raw请求
+        function handleRawFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawFile = urlParams.get('raw');
+            const apiKey = urlParams.get('key');
+            
+            if (rawFile) {
+                // 如果有API密钥，说明是API调用
+                if (apiKey === CONFIG.apiKey) {
+                    displayRawContent(rawFile);
+                    return true;
+                }
+                // 否则检查登录状态
+                else if (sessionStorage.getItem('authenticated') === 'true') {
+                    displayRawContent(rawFile);
+                    return true;
+                } else {
+                    document.body.innerHTML = `
+                        <div style="text-align: center; margin-top: 100px; font-family: Arial, sans-serif;">
+                            <h1>🔒 访问受限</h1>
+                            <p>请先登录才能查看文件内容</p>
+                            <button onclick="window.location.href='/'" 
+                                    style="padding: 10px 20px; margin-top: 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                返回登录
+                            </button>
+                        </div>
+                    `;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // 显示Raw内容
+        async function displayRawContent(filename) {
+            try {
+                const content = await githubManager.getFileContent(filename);
+                if (content) {
+                    document.body.innerHTML = `<pre style="margin: 0; padding: 0; font-family: monospace; white-space: pre-wrap;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`;
+                    document.body.style.background = 'white';
+                    document.body.style.color = 'black';
                 } else {
                     document.body.innerHTML = '<h1>404 - File Not Found</h1>';
                 }
             } catch (error) {
-                document.body.innerHTML = '<h1>500 - Server Error</h1>';
-                console.error('Raw访问错误:', error);
+                document.body.innerHTML = '<h1>500 - Failed to Load File</h1>';
+                console.error('Raw显示错误:', error);
             }
         }
 
@@ -531,22 +589,21 @@
             const path = window.location.pathname;
             const params = new URLSearchParams(window.location.search);
             
-            // Raw文件访问
-            if (path.startsWith('/r/')) {
-                handleRawAccess(path);
+            // 首先检查URL参数中的Raw请求
+            if (handleRawFromUrl()) {
                 return;
             }
-
+            
             // API访问
             if (path.startsWith('/api/')) {
                 const apiKey = params.get('key');
-                const result = handleApiRequest(path, apiKey);
-                
-                if (result.error) {
-                    document.body.innerHTML = `<h1>Error: ${result.error}</h1>`;
-                } else {
-                    document.body.innerHTML = `<pre>${result.content}</pre>`;
-                }
+                handleApiRequest(path, apiKey).then(result => {
+                    if (result.error) {
+                        document.body.innerHTML = `<h1>Error: ${result.error}</h1>`;
+                    } else {
+                        document.body.innerHTML = `<pre>${result.content}</pre>`;
+                    }
+                });
                 return;
             }
 
