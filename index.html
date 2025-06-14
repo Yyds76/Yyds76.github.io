@@ -233,11 +233,7 @@
             <p>安全的代码文件管理系统</p>
         </div>
 
-        <div class="upload-section">
-            <h3>📁 上传新文件</h3>
-            <input type="file" id="fileInput" class="file-input" accept=".lua,.txt,.js,.py">
-            <button class="upload-btn" onclick="uploadFile()">上传文件</button>
-        </div>
+        <!-- 移除这个上传部分 -->
 
         <div class="file-list">
             <h3 style="margin-bottom: 20px; color: #4a5568;">📂 文件列表</h3>
@@ -252,21 +248,235 @@
         const CONFIG = {
             password: 'SuperMiner', // 访问密码
             apiKey: 'yyds_steve_76', // API密钥
-            domain: 'www.hbhub.dpdns.org' // 代理域名
+            domain: 'www.hbhub.dpdns.org', // 代理域名
+            github: {
+                username: 'Yyds76',
+                repo: 'Yyds76.github.io',
+                branch: 'main' // 或者 'master'，根据您的默认分支
+            }
         };
 
+        // GitHub API相关函数
+        class GitHubFileManager {
+            constructor(username, repo, branch = 'main') {
+                this.username = username;
+                this.repo = repo;
+                this.branch = branch;
+                this.baseUrl = `https://api.github.com/repos/${username}/${repo}`;
+                this.rawBaseUrl = `https://raw.githubusercontent.com/${username}/${repo}/${branch}`;
+            }
+
+            // 获取仓库文件列表
+            async getFileList() {
+                try {
+                    const response = await fetch(`${this.baseUrl}/contents?ref=${this.branch}`);
+                    if (!response.ok) throw new Error('获取文件列表失败');
+                    
+                    const files = await response.json();
+                    // 过滤出代码文件
+                    return files.filter(file => 
+                        file.type === 'file' && 
+                        (file.name.endsWith('.lua') || 
+                         file.name.endsWith('.txt') || 
+                         file.name.endsWith('.js') || 
+                         file.name.endsWith('.py') ||
+                         file.name.endsWith('.md'))
+                    );
+                } catch (error) {
+                    console.error('获取文件列表错误:', error);
+                    return [];
+                }
+            }
+
+            // 获取文件内容
+            async getFileContent(filename) {
+                try {
+                    const response = await fetch(`${this.rawBaseUrl}/${filename}`);
+                    if (!response.ok) throw new Error('文件不存在');
+                    
+                    return await response.text();
+                } catch (error) {
+                    console.error('获取文件内容错误:', error);
+                    return null;
+                }
+            }
+
+            // 通过文件ID获取文件名
+            async getFilenameById(fileId) {
+                const files = await this.getFileList();
+                return files.find(file => this.generateFileId(file.name) === fileId)?.name || null;
+            }
+
+            // 生成文件ID
+            generateFileId(filename) {
+                return btoa(filename).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+            }
+        }
+
+        // 初始化GitHub文件管理器
+        const githubManager = new GitHubFileManager(
+            CONFIG.github.username, 
+            CONFIG.github.repo, 
+            CONFIG.github.branch
+        );
+
+        // 加载文件列表（修改为从GitHub获取）
+        async function loadFileList() {
+            const container = document.getElementById('fileListContainer');
+            container.innerHTML = '<div style="text-align: center; padding: 20px;">正在加载文件列表...</div>';
+
+            try {
+                const files = await githubManager.getFileList();
+                container.innerHTML = '';
+
+                if (files.length === 0) {
+                    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">仓库中没有找到支持的文件类型</div>';
+                    return;
+                }
+
+                files.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    
+                    // 获取文件图标
+                    const getFileIcon = (filename) => {
+                        if (filename.endsWith('.lua')) return '🌙';
+                        if (filename.endsWith('.js')) return '📜';
+                        if (filename.endsWith('.py')) return '🐍';
+                        if (filename.endsWith('.txt')) return '📄';
+                        if (filename.endsWith('.md')) return '📝';
+                        return '📄';
+                    };
+
+                    fileItem.innerHTML = `
+                        <span class="file-name">${getFileIcon(file.name)} ${file.name}</span>
+                        <div class="file-actions">
+                            <button class="btn btn-view" onclick="viewFile('${file.name}')">查看</button>
+                            <button class="btn btn-raw" onclick="viewRaw('${file.name}')">Raw</button>
+                        </div>
+                    `;
+                    container.appendChild(fileItem);
+                });
+            } catch (error) {
+                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">加载文件列表失败，请检查网络连接</div>';
+                console.error('加载文件列表失败:', error);
+            }
+        }
+
+        // 查看文件（修改为从GitHub获取）
+        async function viewFile(filename) {
+            try {
+                const content = await githubManager.getFileContent(filename);
+                if (content) {
+                    // 创建模态框显示文件内容
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background: rgba(0,0,0,0.8); z-index: 1000; display: flex;
+                        align-items: center; justify-content: center; padding: 20px;
+                    `;
+                    
+                    modal.innerHTML = `
+                        <div style="background: white; border-radius: 10px; padding: 20px; max-width: 80%; max-height: 80%; overflow: auto;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h3 style="margin: 0; color: #333;">📄 ${filename}</h3>
+                                <button onclick="this.closest('div').parentElement.remove()" 
+                                        style="background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
+                                    关闭
+                                </button>
+                            </div>
+                            <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow: auto; max-height: 400px; font-family: monospace;">${content}</pre>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+                } else {
+                    alert('无法获取文件内容');
+                }
+            } catch (error) {
+                alert('获取文件失败: ' + error.message);
+            }
+        }
+
+        // API端点处理（修改为使用GitHub数据）
+        async function handleApiRequest(path, apiKey) {
+            // 验证API密钥
+            if (apiKey !== CONFIG.apiKey) {
+                return { error: 'Invalid API key', code: 401 };
+            }
+
+            try {
+                // 解析文件ID
+                const fileId = path.split('/').pop();
+                const filename = await githubManager.getFilenameById(fileId);
+                
+                if (!filename) {
+                    return { error: 'File not found', code: 404 };
+                }
+
+                const content = await githubManager.getFileContent(filename);
+                if (!content) {
+                    return { error: 'Failed to fetch file content', code: 500 };
+                }
+
+                return {
+                    success: true,
+                    filename: filename,
+                    content: content,
+                    fileId: fileId
+                };
+            } catch (error) {
+                return { error: 'Internal server error', code: 500 };
+            }
+        }
+
+        // 处理Raw访问（修改为使用GitHub数据）
+        async function handleRawAccess(path) {
+            // 检查是否已登录
+            if (sessionStorage.getItem('authenticated') !== 'true') {
+                document.body.innerHTML = `
+                    <div style="text-align: center; margin-top: 100px; font-family: Arial, sans-serif;">
+                        <h1>🔒 访问受限</h1>
+                        <p>请先登录才能查看文件内容</p>
+                        <button onclick="window.location.href='/'" 
+                                style="padding: 10px 20px; margin-top: 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            返回登录
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                const fileId = path.split('/r/')[1];
+                const filename = await githubManager.getFilenameById(fileId);
+                
+                if (filename) {
+                    const content = await githubManager.getFileContent(filename);
+                    if (content) {
+                        // Raw模式只显示纯文本内容
+                        document.body.innerHTML = `<pre style="margin: 0; padding: 0; font-family: monospace; white-space: pre-wrap;">${content}</pre>`;
+                        document.body.style.background = 'white';
+                        document.body.style.color = 'black';
+                    } else {
+                        document.body.innerHTML = '<h1>500 - Failed to Load File</h1>';
+                    }
+                } else {
+                    document.body.innerHTML = '<h1>404 - File Not Found</h1>';
+                }
+            } catch (error) {
+                document.body.innerHTML = '<h1>500 - Server Error</h1>';
+                console.error('Raw访问错误:', error);
+            }
+        }
+
+        // 移除上传文件功能（因为GitHub Pages是静态的）
+        function uploadFile() {
+            alert('GitHub Pages是静态托管，无法直接上传文件。请通过Git推送文件到仓库。');
+        }
+
         // 模拟文件存储（实际使用时需要后端支持）
-        let fileStorage = {
-            'test.lua': `-- 测试Lua脚本
-print("Hello from Yyds76!")
-game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50`,
-            'example.lua': `-- 示例脚本
-local player = game.Players.LocalPlayer
-print("玩家名称: " .. player.Name)`,
-            'config.txt': `# 配置文件
-version=1.0
-author=Yyds76`
-        };
+        
 
         // 检查登录状态
         function checkAuth() {
@@ -313,81 +523,8 @@ author=Yyds76`
             showLoginInterface();
         }
 
-        // 加载文件列表
-        function loadFileList() {
-            const container = document.getElementById('fileListContainer');
-            container.innerHTML = '';
-
-            Object.keys(fileStorage).forEach(filename => {
-                const fileItem = document.createElement('div');
-                fileItem.className = 'file-item';
-                fileItem.innerHTML = `
-                    <span class="file-name">📄 ${filename}</span>
-                    <div class="file-actions">
-                        <button class="btn btn-view" onclick="viewFile('${filename}')">查看</button>
-                        <button class="btn btn-raw" onclick="viewRaw('${filename}')">Raw</button>
-                    </div>
-                `;
-                container.appendChild(fileItem);
-            });
-        }
-
-        // 查看文件（普通模式）
-        function viewFile(filename) {
-            const content = fileStorage[filename];
-            alert(`文件: ${filename}\n\n内容:\n${content}`);
-        }
-
-        // Raw模式查看文件
-        function viewRaw(filename) {
-            const fileId = btoa(filename).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
-            const rawUrl = `${window.location.origin}/r/${fileId}`;
-            window.open(rawUrl, '_blank');
-        }
-
-        // 上传文件
-        function uploadFile() {
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert('请选择一个文件');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                fileStorage[file.name] = e.target.result;
-                loadFileList();
-                fileInput.value = '';
-                alert('文件上传成功！');
-            };
-            reader.readAsText(file);
-        }
-
         // API端点处理
-        function handleApiRequest(path, apiKey) {
-            // 验证API密钥
-            if (apiKey !== CONFIG.apiKey) {
-                return { error: 'Invalid API key' };
-            }
-
-            // 解析文件路径
-            const filename = Object.keys(fileStorage).find(name => {
-                const fileId = btoa(name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
-                return path.includes(fileId);
-            });
-
-            if (!filename) {
-                return { error: 'File not found' };
-            }
-
-            return {
-                success: true,
-                filename: filename,
-                content: fileStorage[filename]
-            };
-        }
+        
 
         // 处理URL路由
         function handleRouting() {
@@ -418,34 +555,7 @@ author=Yyds76`
         }
 
         // 处理Raw访问
-        function handleRawAccess(path) {
-            // 检查是否已登录
-            if (sessionStorage.getItem('authenticated') !== 'true') {
-                document.body.innerHTML = `
-                    <div style="text-align: center; margin-top: 100px;">
-                        <h1>🔒 访问受限</h1>
-                        <p>请先登录才能查看文件内容</p>
-                        <button onclick="window.location.href='/'" style="padding: 10px 20px; margin-top: 20px;">返回登录</button>
-                    </div>
-                `;
-                return;
-            }
-
-            const fileId = path.split('/r/')[1];
-            const filename = Object.keys(fileStorage).find(name => {
-                const id = btoa(name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
-                return id === fileId;
-            });
-
-            if (filename) {
-                // Raw模式只显示纯文本内容
-                document.body.innerHTML = `<pre style="margin: 0; padding: 0; font-family: monospace;">${fileStorage[filename]}</pre>`;
-                document.body.style.background = 'white';
-                document.body.style.color = 'black';
-            } else {
-                document.body.innerHTML = '<h1>404 - File Not Found</h1>';
-            }
-        }
+        
 
         // 页面加载时执行路由处理
         window.addEventListener('load', handleRouting);
