@@ -5,7 +5,7 @@ let currentFileId = null
 const API_KEY = "yyds_steve_76"
 const PASSWORD = "SuperMiner"
 
-// 域名配置 - 支持多个域名
+// 域名配置
 const DOMAIN_CONFIG = {
   primary: "www.hbhub.dpdns.org",
   fallback: "yyds76.github.io",
@@ -14,7 +14,7 @@ const DOMAIN_CONFIG = {
   },
 }
 
-// 文件ID映射 - 使用特定标识符而不是文件名
+// 文件ID映射
 const FILE_ID_MAP = {
   a1b2c3: "test",
   d4e5f6: "example",
@@ -30,30 +30,76 @@ Object.keys(FILE_ID_MAP).forEach((key) => {
 
 // 初始化应用
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("🚀 初始化应用...")
   initializeApp()
 })
 
 // 初始化应用程序
 function initializeApp() {
-  // 隐藏所有容器
-  document.getElementById("loginContainer").classList.add("hidden")
-  document.getElementById("mainContainer").classList.add("hidden")
-  document.getElementById("rawContainer").classList.add("hidden")
-  document.getElementById("errorContainer").classList.add("hidden")
-  document.getElementById("executableContainer").classList.add("hidden")
+  try {
+    console.log("📋 检查页面元素...")
 
-  // 检查URL路径
-  const path = window.location.pathname
-  if (path.startsWith("/r/") || path.startsWith("/x/")) {
-    handleSpecialRequest(path)
-    return
+    // 确保所有必要元素存在
+    const requiredElements = [
+      "loginContainer",
+      "mainContainer",
+      "rawContainer",
+      "errorContainer",
+      "executableContainer",
+      "passwordInput",
+    ]
+
+    for (const elementId of requiredElements) {
+      const element = document.getElementById(elementId)
+      if (!element) {
+        console.error(`❌ 缺少必要元素: ${elementId}`)
+        return
+      }
+    }
+
+    // 隐藏所有容器
+    hideAllContainers()
+
+    // 检查URL路径
+    const path = window.location.pathname
+    console.log("🔍 当前路径:", path)
+
+    if (path.startsWith("/r/") || path.startsWith("/x/")) {
+      console.log("🔗 处理特殊请求...")
+      handleSpecialRequest(path)
+      return
+    }
+
+    // 加载示例文件
+    loadSampleFiles()
+    console.log("📁 示例文件已加载")
+
+    // 检查认证状态
+    checkAuthentication()
+
+    // 绑定事件
+    bindEvents()
+    console.log("✅ 应用初始化完成")
+  } catch (error) {
+    console.error("❌ 初始化失败:", error)
+    showError("应用初始化失败: " + error.message)
   }
+}
 
-  // 检查认证状态
-  checkAuthentication()
-  loadSampleFiles()
+// 隐藏所有容器
+function hideAllContainers() {
+  const containers = ["loginContainer", "mainContainer", "rawContainer", "errorContainer", "executableContainer"]
 
-  // 绑定事件
+  containers.forEach((id) => {
+    const element = document.getElementById(id)
+    if (element) {
+      element.classList.add("hidden")
+    }
+  })
+}
+
+// 绑定事件
+function bindEvents() {
   const passwordInput = document.getElementById("passwordInput")
   if (passwordInput) {
     passwordInput.addEventListener("keypress", (e) => {
@@ -67,6 +113,8 @@ function initializeApp() {
 // 检查身份验证状态
 function checkAuthentication() {
   const authStatus = sessionStorage.getItem("authenticated")
+  console.log("🔐 检查认证状态:", authStatus)
+
   if (authStatus === "true") {
     isAuthenticated = true
     showMainInterface()
@@ -77,108 +125,53 @@ function checkAuthentication() {
 
 // 显示登录界面
 function showLoginInterface() {
+  console.log("🔑 显示登录界面")
+  hideAllContainers()
   document.getElementById("loginContainer").classList.remove("hidden")
-  document.getElementById("mainContainer").classList.add("hidden")
-  document.getElementById("rawContainer").classList.add("hidden")
-  document.getElementById("errorContainer").classList.add("hidden")
-  document.getElementById("executableContainer").classList.add("hidden")
 }
 
 // 显示主界面
 function showMainInterface() {
-  document.getElementById("loginContainer").classList.add("hidden")
+  console.log("🏠 显示主界面")
+  hideAllContainers()
   document.getElementById("mainContainer").classList.remove("hidden")
-  document.getElementById("rawContainer").classList.add("hidden")
-  document.getElementById("errorContainer").classList.add("hidden")
-  document.getElementById("executableContainer").classList.add("hidden")
   renderFileList()
   updateApiInfo()
 }
 
 // 身份验证
 function authenticate() {
-  const password = document.getElementById("passwordInput").value
+  const passwordInput = document.getElementById("passwordInput")
   const errorDiv = document.getElementById("loginError")
+  const password = passwordInput.value
+
+  console.log("🔐 尝试登录...")
 
   if (password === PASSWORD) {
+    console.log("✅ 登录成功")
     isAuthenticated = true
     sessionStorage.setItem("authenticated", "true")
     showMainInterface()
     errorDiv.textContent = ""
   } else {
+    console.log("❌ 登录失败")
     errorDiv.textContent = "密码错误，请重试"
-    document.getElementById("passwordInput").value = ""
+    passwordInput.value = ""
   }
 }
 
 // 退出登录
 function logout() {
+  console.log("👋 退出登录")
   isAuthenticated = false
   sessionStorage.removeItem("authenticated")
   showLoginInterface()
   document.getElementById("passwordInput").value = ""
 }
 
-// 检查是否为Roblox executor请求
-function isRobloxExecutor(userAgent) {
-  // Roblox executor通常会在User-Agent中包含特定标识
-  // 这里使用简单的检测方法，实际使用时可能需要更复杂的检测
-  return (
-    userAgent &&
-    (userAgent.includes("Roblox") ||
-      userAgent.includes("Synapse") ||
-      userAgent.includes("Krnl") ||
-      userAgent.includes("Executor"))
-  )
-}
-
-// 处理Raw请求
-function handleRawRequest(path) {
-  const fileId = path.substring(1) // 移除开头的 '/'
-
-  // 检查API密钥（通过URL参数或请求头）
-  const urlParams = new URLSearchParams(window.location.search)
-  const apiKey = urlParams.get("api") || getApiKeyFromHeaders()
-
-  // 检查是否为Roblox executor或有效API密钥
-  const userAgent = navigator.userAgent
-  const isValidExecutor = isRobloxExecutor(userAgent)
-  const hasValidApiKey = apiKey === API_KEY
-
-  if (!isValidExecutor && !hasValidApiKey && !isAuthenticated) {
-    // 如果不是executor且没有有效API密钥且未登录，重定向到登录页面
-    window.location.href = "/"
-    return
-  }
-
-  // 显示文件内容
-  displayRawContent(fileId)
-}
-
-// 从请求头获取API密钥（模拟）
-function getApiKeyFromHeaders() {
-  // 在实际的服务器环境中，这将从HTTP头部获取
-  // 在客户端JavaScript中，我们无法直接访问自定义请求头
-  // 这里仅作为示例
-  return null
-}
-
-// 显示Raw内容
-function displayRawContent(fileKey) {
-  document.getElementById("loginContainer").classList.add("hidden")
-  document.getElementById("mainContainer").classList.add("hidden")
-  document.getElementById("rawContainer").classList.remove("hidden")
-  document.getElementById("errorContainer").classList.add("hidden")
-  document.getElementById("executableContainer").classList.add("hidden")
-
-  const file = currentFiles[fileKey]
-  const rawContent = document.getElementById("rawContent")
-
-  if (file) {
-    rawContent.textContent = file.content
-  } else {
-    rawContent.textContent = '-- 文件未找到\nprint("错误: 文件不存在")'
-  }
+// 返回首页
+function goHome() {
+  window.location.href = "/"
 }
 
 // 加载示例文件
@@ -188,7 +181,7 @@ function loadSampleFiles() {
       name: "test.lua",
       content: `-- 测试脚本
 print("Hello from Yyds76 repository!")
-print("这是一个测试文件")
+print("当前域名: ${DOMAIN_CONFIG.getCurrentDomain()}")
 
 -- 示例函数
 function greet(name)
@@ -244,15 +237,22 @@ return Utility`,
       type: "lua",
     },
   }
+  console.log("📁 已加载", Object.keys(currentFiles).length, "个示例文件")
 }
 
 // 渲染文件列表
 function renderFileList() {
   const fileListDiv = document.getElementById("fileList")
+  if (!fileListDiv) {
+    console.error("❌ 找不到文件列表容器")
+    return
+  }
+
   fileListDiv.innerHTML = ""
+  console.log("📋 渲染文件列表...")
 
   for (const [fileKey, file] of Object.entries(currentFiles)) {
-    const fileId = REVERSE_FILE_MAP[fileKey]
+    const fileId = REVERSE_FILE_MAP[fileKey] || "unknown"
     const fileItem = document.createElement("div")
     fileItem.className = "file-item"
     fileItem.innerHTML = `
@@ -268,39 +268,52 @@ function renderFileList() {
 
     fileItem.addEventListener("click", (e) => {
       if (!e.target.classList.contains("raw-btn") && !e.target.classList.contains("delete-btn")) {
-        selectFile(fileKey)
+        selectFile(fileKey, fileItem)
       }
     })
 
     fileListDiv.appendChild(fileItem)
   }
+
+  console.log("✅ 文件列表渲染完成")
 }
 
 // 选择文件
-function selectFile(fileId) {
+function selectFile(fileId, itemElement) {
   currentFileId = fileId
   const file = currentFiles[fileId]
+
+  if (!file) {
+    console.error("❌ 文件不存在:", fileId)
+    return
+  }
 
   // 更新选中状态
   document.querySelectorAll(".file-item").forEach((item) => {
     item.classList.remove("active")
   })
-  event.currentTarget.classList.add("active")
+  if (itemElement) {
+    itemElement.classList.add("active")
+  }
 
   // 显示文件内容
   const fileViewer = document.getElementById("fileViewer")
-  fileViewer.innerHTML = `
-        <div class="file-header">
-            <h3>📄 ${file.name}</h3>
-            <div class="file-controls">
-                <button onclick="editFile('${fileId}')">编辑</button>
-                <button onclick="openRaw('${fileId}')">查看Raw</button>
-            </div>
+  if (fileViewer) {
+    fileViewer.innerHTML = `
+      <div class="file-header">
+        <h3>📄 ${file.name}</h3>
+        <div class="file-controls">
+          <button onclick="editFile('${fileId}')">编辑</button>
+          <button onclick="openRaw('${fileId}')">查看Raw</button>
         </div>
-        <div class="file-content">
-            <pre><code>${escapeHtml(file.content)}</code></pre>
-        </div>
+      </div>
+      <div class="file-content">
+        <pre><code>${escapeHtml(file.content)}</code></pre>
+      </div>
     `
+  }
+
+  console.log("📄 已选择文件:", file.name)
 }
 
 // 编辑文件
@@ -308,26 +321,37 @@ function editFile(fileId) {
   const file = currentFiles[fileId]
   const fileViewer = document.getElementById("fileViewer")
 
+  if (!file || !fileViewer) return
+
   fileViewer.innerHTML = `
-        <div class="file-header">
-            <h3>✏️ 编辑 ${file.name}</h3>
-            <div class="file-controls">
-                <button onclick="saveFile('${fileId}')">保存</button>
-                <button onclick="selectFile('${fileId}')">取消</button>
-            </div>
-        </div>
-        <div class="file-content">
-            <textarea id="codeEditor" class="code-editor">${file.content}</textarea>
-        </div>
-    `
+    <div class="file-header">
+      <h3>✏️ 编辑 ${file.name}</h3>
+      <div class="file-controls">
+        <button onclick="saveFile('${fileId}')">保存</button>
+        <button onclick="cancelEdit('${fileId}')">取消</button>
+      </div>
+    </div>
+    <div class="file-content">
+      <textarea id="codeEditor" class="code-editor">${file.content}</textarea>
+    </div>
+  `
+}
+
+// 取消编辑
+function cancelEdit(fileId) {
+  selectFile(fileId)
 }
 
 // 保存文件
 function saveFile(fileId) {
-  const content = document.getElementById("codeEditor").value
+  const codeEditor = document.getElementById("codeEditor")
+  if (!codeEditor) return
+
+  const content = codeEditor.value
   currentFiles[fileId].content = content
   selectFile(fileId)
   alert("文件已保存！")
+  console.log("💾 文件已保存:", fileId)
 }
 
 // 打开Raw模式
@@ -345,15 +369,18 @@ function deleteFile(fileId) {
     delete currentFiles[fileId]
     renderFileList()
 
-    // 如果删除的是当前选中的文件，清空查看器
     if (currentFileId === fileId) {
-      document.getElementById("fileViewer").innerHTML = `
-                <div class="welcome-message">
-                    <h2>文件已删除</h2>
-                    <p>选择其他文件以查看内容</p>
-                </div>
-            `
+      const fileViewer = document.getElementById("fileViewer")
+      if (fileViewer) {
+        fileViewer.innerHTML = `
+          <div class="welcome-message">
+            <h2>文件已删除</h2>
+            <p>选择其他文件以查看内容</p>
+          </div>
+        `
+      }
     }
+    console.log("🗑️ 文件已删除:", fileId)
   }
 }
 
@@ -361,14 +388,37 @@ function deleteFile(fileId) {
 function addFile() {
   const fileName = prompt("请输入文件名（包含扩展名）:")
   if (fileName) {
-    const fileId = fileName.replace(/\.[^/.]+$/, "") // 移除扩展名作为ID
+    const fileId = fileName.replace(/\.[^/.]+$/, "")
     currentFiles[fileId] = {
       name: fileName,
       content: `-- 新建文件: ${fileName}\nprint("Hello World!")`,
       type: fileName.split(".").pop(),
     }
     renderFileList()
+    console.log("➕ 新文件已添加:", fileName)
   }
+}
+
+// 更新API信息
+function updateApiInfo() {
+  const currentDomain = DOMAIN_CONFIG.getCurrentDomain()
+  const apiInfoElement = document.querySelector(".api-details")
+  if (apiInfoElement) {
+    apiInfoElement.innerHTML = `
+      <p><strong>API Key:</strong> <code>yyds_steve_76</code></p>
+      <p><strong>当前域名:</strong> <code>${currentDomain}</code></p>
+      <p><strong>Raw 访问:</strong> <code>https://${currentDomain}/r/文件标识符</code></p>
+      <p><strong>执行访问:</strong> <code>https://${currentDomain}/x/文件标识符</code></p>
+      <p><strong>示例:</strong> <code>https://${currentDomain}/r/a1b2c3</code></p>
+    `
+  }
+}
+
+// 显示错误
+function showError(message) {
+  hideAllContainers()
+  document.getElementById("errorContainer").classList.remove("hidden")
+  document.getElementById("errorContent").textContent = message
 }
 
 // HTML转义函数
@@ -378,67 +428,32 @@ function escapeHtml(text) {
   return div.innerHTML
 }
 
-// 处理浏览器后退按钮
-window.addEventListener("popstate", (event) => {
-  const path = window.location.pathname
-  if (path === "/" || path === "/index.html") {
-    if (isAuthenticated) {
-      showMainInterface()
-    } else {
-      showLoginInterface()
-    }
-  } else {
-    handleSpecialRequest(path)
-  }
-})
-
-// API端点模拟（用于Roblox executor）
-window.API = {
-  // 获取文件内容
-  getFile: (fileId, apiKey) => {
-    if (apiKey !== API_KEY) {
-      return { error: "Invalid API key" }
-    }
-
-    const file = currentFiles[fileId]
-    if (file) {
-      return { success: true, content: file.content, name: file.name }
-    } else {
-      return { error: "File not found" }
-    }
-  },
-
-  // 获取文件列表
-  getFileList: (apiKey) => {
-    if (apiKey !== API_KEY) {
-      return { error: "Invalid API key" }
-    }
-
-    const fileList = Object.keys(currentFiles).map((id) => ({
-      id: id,
-      name: currentFiles[id].name,
-      type: currentFiles[id].type,
-    }))
-
-    return { success: true, files: fileList }
-  },
+// 检查是否为Roblox executor
+function isRobloxExecutor(userAgent) {
+  return (
+    userAgent &&
+    (userAgent.includes("Roblox") ||
+      userAgent.includes("Synapse") ||
+      userAgent.includes("Krnl") ||
+      userAgent.includes("Executor"))
+  )
 }
 
+// 处理特殊请求
 function handleSpecialRequest(path) {
   const parts = path.split("/")
   const mode = parts[1] // 'r' for raw, 'x' for execute
   const fileId = parts[2]
 
   if (!fileId || !FILE_ID_MAP[fileId]) {
-    show404()
+    showError("404 - 文件未找到")
     return
   }
 
   const fileKey = FILE_ID_MAP[fileId]
 
-  // 检查权限
   if (!checkAccess()) {
-    showAccessDenied()
+    showError("访问被拒绝")
     return
   }
 
@@ -449,6 +464,7 @@ function handleSpecialRequest(path) {
   }
 }
 
+// 检查访问权限
 function checkAccess() {
   // 检查是否已登录
   if (sessionStorage.getItem("authenticated") === "true") {
@@ -471,55 +487,54 @@ function checkAccess() {
   return false
 }
 
-// 显示404页面
-function show404() {
-  document.getElementById("loginContainer").classList.add("hidden")
-  document.getElementById("mainContainer").classList.add("hidden")
-  document.getElementById("rawContainer").classList.add("hidden")
-  document.getElementById("errorContainer").classList.remove("hidden")
-  document.getElementById("executableContainer").classList.add("hidden")
-  document.getElementById("errorContent").textContent = "404 - 文件未找到"
-}
+// 显示Raw内容
+function displayRawContent(fileKey) {
+  hideAllContainers()
+  document.getElementById("rawContainer").classList.remove("hidden")
 
-// 显示访问被拒绝页面
-function showAccessDenied() {
-  document.getElementById("loginContainer").classList.add("hidden")
-  document.getElementById("mainContainer").classList.add("hidden")
-  document.getElementById("rawContainer").classList.add("hidden")
-  document.getElementById("errorContainer").classList.remove("hidden")
-  document.getElementById("executableContainer").classList.add("hidden")
-  document.getElementById("errorContent").textContent = "访问被拒绝"
+  const file = currentFiles[fileKey]
+  const rawContent = document.getElementById("rawContent")
+
+  if (file && rawContent) {
+    rawContent.textContent = file.content
+  } else {
+    rawContent.textContent = '-- 文件未找到\nprint("错误: 文件不存在")'
+  }
 }
 
 // 显示可执行内容
 function displayExecutableContent(fileKey) {
-  document.getElementById("loginContainer").classList.add("hidden")
-  document.getElementById("mainContainer").classList.add("hidden")
-  document.getElementById("rawContainer").classList.add("hidden")
-  document.getElementById("errorContainer").classList.add("hidden")
+  hideAllContainers()
   document.getElementById("executableContainer").classList.remove("hidden")
 
   const file = currentFiles[fileKey]
   const executableContent = document.getElementById("executableContent")
 
-  if (file) {
+  if (file && executableContent) {
     executableContent.textContent = `-- 执行文件: ${file.name}\n${file.content}`
   } else {
     executableContent.textContent = '-- 文件未找到\nprint("错误: 文件不存在")'
   }
 }
 
-// 在 showMainInterface 函数中更新API信息显示
-function updateApiInfo() {
-  const currentDomain = DOMAIN_CONFIG.getCurrentDomain()
-  const apiInfoElement = document.querySelector(".api-details")
-  if (apiInfoElement) {
-    apiInfoElement.innerHTML = `
-      <p><strong>API Key:</strong> <code>yyds_steve_76</code></p>
-      <p><strong>当前域名:</strong> <code>${currentDomain}</code></p>
-      <p><strong>Raw 访问:</strong> <code>https://${currentDomain}/r/文件标识符</code></p>
-      <p><strong>执行访问:</strong> <code>https://${currentDomain}/x/文件标识符</code></p>
-      <p><strong>示例:</strong> <code>https://${currentDomain}/r/a1b2c3</code></p>
-    `
+// 处理浏览器后退按钮
+window.addEventListener("popstate", (event) => {
+  const path = window.location.pathname
+  if (path === "/" || path === "/index.html") {
+    if (isAuthenticated) {
+      showMainInterface()
+    } else {
+      showLoginInterface()
+    }
+  } else {
+    handleSpecialRequest(path)
   }
-}
+})
+
+// 全局错误处理
+window.addEventListener("error", (event) => {
+  console.error("❌ 全局错误:", event.error)
+  showError("发生了意外错误: " + event.error.message)
+})
+
+console.log("📜 脚本加载完成")
