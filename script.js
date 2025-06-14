@@ -5,6 +5,15 @@ let currentFileId = null
 const API_KEY = "yyds_steve_76"
 const PASSWORD = "SuperMiner"
 
+// 域名配置 - 支持多个域名
+const DOMAIN_CONFIG = {
+  primary: "www.hbhub.dpdns.org",
+  fallback: "yyds76.github.io",
+  getCurrentDomain: () => {
+    return window.location.hostname
+  },
+}
+
 // 文件ID映射 - 使用特定标识符而不是文件名
 const FILE_ID_MAP = {
   a1b2c3: "test",
@@ -30,6 +39,8 @@ function initializeApp() {
   document.getElementById("loginContainer").classList.add("hidden")
   document.getElementById("mainContainer").classList.add("hidden")
   document.getElementById("rawContainer").classList.add("hidden")
+  document.getElementById("errorContainer").classList.add("hidden")
+  document.getElementById("executableContainer").classList.add("hidden")
 
   // 检查URL路径
   const path = window.location.pathname
@@ -69,6 +80,8 @@ function showLoginInterface() {
   document.getElementById("loginContainer").classList.remove("hidden")
   document.getElementById("mainContainer").classList.add("hidden")
   document.getElementById("rawContainer").classList.add("hidden")
+  document.getElementById("errorContainer").classList.add("hidden")
+  document.getElementById("executableContainer").classList.add("hidden")
 }
 
 // 显示主界面
@@ -76,7 +89,10 @@ function showMainInterface() {
   document.getElementById("loginContainer").classList.add("hidden")
   document.getElementById("mainContainer").classList.remove("hidden")
   document.getElementById("rawContainer").classList.add("hidden")
+  document.getElementById("errorContainer").classList.add("hidden")
+  document.getElementById("executableContainer").classList.add("hidden")
   renderFileList()
+  updateApiInfo()
 }
 
 // 身份验证
@@ -152,6 +168,8 @@ function displayRawContent(fileKey) {
   document.getElementById("loginContainer").classList.add("hidden")
   document.getElementById("mainContainer").classList.add("hidden")
   document.getElementById("rawContainer").classList.remove("hidden")
+  document.getElementById("errorContainer").classList.add("hidden")
+  document.getElementById("executableContainer").classList.add("hidden")
 
   const file = currentFiles[fileKey]
   const rawContent = document.getElementById("rawContent")
@@ -459,6 +477,7 @@ function show404() {
   document.getElementById("mainContainer").classList.add("hidden")
   document.getElementById("rawContainer").classList.add("hidden")
   document.getElementById("errorContainer").classList.remove("hidden")
+  document.getElementById("executableContainer").classList.add("hidden")
   document.getElementById("errorContent").textContent = "404 - 文件未找到"
 }
 
@@ -468,6 +487,7 @@ function showAccessDenied() {
   document.getElementById("mainContainer").classList.add("hidden")
   document.getElementById("rawContainer").classList.add("hidden")
   document.getElementById("errorContainer").classList.remove("hidden")
+  document.getElementById("executableContainer").classList.add("hidden")
   document.getElementById("errorContent").textContent = "访问被拒绝"
 }
 
@@ -476,6 +496,7 @@ function displayExecutableContent(fileKey) {
   document.getElementById("loginContainer").classList.add("hidden")
   document.getElementById("mainContainer").classList.add("hidden")
   document.getElementById("rawContainer").classList.add("hidden")
+  document.getElementById("errorContainer").classList.add("hidden")
   document.getElementById("executableContainer").classList.remove("hidden")
 
   const file = currentFiles[fileKey]
@@ -485,5 +506,20 @@ function displayExecutableContent(fileKey) {
     executableContent.textContent = `-- 执行文件: ${file.name}\n${file.content}`
   } else {
     executableContent.textContent = '-- 文件未找到\nprint("错误: 文件不存在")'
+  }
+}
+
+// 在 showMainInterface 函数中更新API信息显示
+function updateApiInfo() {
+  const currentDomain = DOMAIN_CONFIG.getCurrentDomain()
+  const apiInfoElement = document.querySelector(".api-details")
+  if (apiInfoElement) {
+    apiInfoElement.innerHTML = `
+      <p><strong>API Key:</strong> <code>yyds_steve_76</code></p>
+      <p><strong>当前域名:</strong> <code>${currentDomain}</code></p>
+      <p><strong>Raw 访问:</strong> <code>https://${currentDomain}/r/文件标识符</code></p>
+      <p><strong>执行访问:</strong> <code>https://${currentDomain}/x/文件标识符</code></p>
+      <p><strong>示例:</strong> <code>https://${currentDomain}/r/a1b2c3</code></p>
+    `
   }
 }
