@@ -1,6 +1,6 @@
--- Roblox HttpService 启用器
+-- Roblox 高级HTTP处理器
 -- 作者: Yyds76
--- 版本: 6.0 - 专注于启用HttpService而非绕过
+-- 版本: 7.0 - 解决HTTP请求被阻止的问题
 
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
@@ -26,53 +26,51 @@ local function printStyled(message, style)
     print(prefix .. message)
 end
 
--- 强制启用HttpService的多种方法
-local function forceEnableHttpService()
-    printStyled("尝试强制启用HttpService...", "info")
+-- 高级HTTP请求函数（绕过阻止）
+local function advancedHttpGet(url)
+    printStyled("尝试高级HTTP请求: " .. url, "info")
     
+    -- 方法1：标准GetAsync
     local methods = {
-        -- 方法1：直接设置
         function()
-            HttpService.HttpEnabled = true
-            return "直接设置"
+            return HttpService:GetAsync(url)
         end,
         
-        -- 方法2：通过pcall保护设置
+        -- 方法2：带同步参数的GetAsync
         function()
-            local success = pcall(function()
-                HttpService.HttpEnabled = true
-            end)
-            if success then
-                return "保护设置"
+            return HttpService:GetAsync(url, true)
+        end,
+        
+        -- 方法3：使用RequestAsync（更底层）
+        function()
+            local response = HttpService:RequestAsync({
+                Url = url,
+                Method = "GET"
+            })
+            if response.Success then
+                return response.Body
             else
-                error("设置失败")
+                error("RequestAsync failed: " .. tostring(response.StatusMessage))
             end
         end,
         
-        -- 方法3：通过游戏设置（如果可访问）
+        -- 方法4：使用game:HttpGet（某些执行器支持）
         function()
-            if game.HttpService then
-                game.HttpService.HttpEnabled = true
-                return "游戏设置"
+            if game.HttpGet then
+                return game:HttpGet(url)
             else
-                error("无法访问游戏设置")
+                error("game:HttpGet not available")
             end
         end,
         
-        -- 方法4：通过RunService设置
+        -- 方法5：使用全局HttpGet（执行器提供）
         function()
-            if RunService:IsStudio() then
-                -- 在Studio中尝试设置
-                local success, result = pcall(function()
-                    game:GetService("HttpService").HttpEnabled = true
-                end)
-                if success then
-                    return "Studio设置"
-                else
-                    error("Studio设置失败: " .. tostring(result))
-                end
+            if _G.HttpGet then
+                return _G.HttpGet(url)
+            elseif getgenv and getgenv().HttpGet then
+                return getgenv().HttpGet(url)
             else
-                error("不在Studio环境中")
+                error("Global HttpGet not available")
             end
         end
     }
@@ -80,81 +78,146 @@ local function forceEnableHttpService()
     for i, method in ipairs(methods) do
         local success, result = pcall(method)
         if success then
-            printStyled("方法 " .. i .. " 成功: " .. result, "success")
-            
-            -- 验证是否真的启用了
-            if HttpService.HttpEnabled then
-                printStyled("HttpService已成功启用！", "success")
-                return true
-            else
-                printStyled("方法 " .. i .. " 执行成功但HttpService仍未启用", "warning")
-            end
+            printStyled("方法 " .. i .. " 成功", "success")
+            return result
         else
-            printStyled("方法 " .. i .. " 失败: " .. tostring(result), "error")
+            printStyled("方法 " .. i .. " 失败: " .. tostring(result), "warning")
+        end
+    end
+    
+    error("所有HTTP方法都失败了")
+end
+
+-- 测试不同的HTTP方法
+local function testHttpMethods()
+    printStyled("测试不同的HTTP方法...", "info")
+    
+    -- 测试URL列表（从最安全到最不安全）
+    local testUrls = {
+        "https://httpbin.org/get",
+        "https://api.github.com/",
+        "https://jsonplaceholder.typicode.com/posts/1",
+        "https://" .. CONFIG.domain .. "/api/list?k=" .. CONFIG.apiKey
+    }
+    
+    for i, url in ipairs(testUrls) do
+        printStyled("测试URL " .. i .. ": " .. url, "info")
+        
+        local success, result = pcall(function()
+            return advancedHttpGet(url)
+        end)
+        
+        if success then
+            printStyled("URL " .. i .. " 测试成功", "success")
+            return true
+        else
+            printStyled("URL " .. i .. " 测试失败: " .. tostring(result), "error")
         end
     end
     
     return false
 end
 
--- 检查HttpService状态并尝试启用
-local function checkAndEnableHttpService()
-    printStyled("检查HttpService状态...", "info")
+-- 检查执行器环境
+local function checkExecutorEnvironment()
+    printStyled("检查执行器环境...", "info")
     
-    if not HttpService then
-        printStyled("HttpService服务不可用", "error")
-        return false
+    local features = {
+        ["HttpService"] = HttpService ~= nil,
+        ["HttpEnabled"] = HttpService and HttpService.HttpEnabled or false,
+        ["game:HttpGet"] = game.HttpGet ~= nil,
+        ["_G.HttpGet"] = _G.HttpGet ~= nil,
+        ["getgenv"] = getgenv ~= nil,
+        ["syn"] = syn ~= nil,
+        ["request"] = request ~= nil,
+        ["http_request"] = http_request ~= nil,
+    }
+    
+    print("🔍 执行器功能检测:")
+    for feature, available in pairs(features) do
+        local status = available and "✅" or "❌"
+        print("  " .. status .. " " .. feature .. ": " .. tostring(available))
     end
     
-    printStyled("HttpService服务: 可用", "success")
-    printStyled("HttpEnabled状态: " .. tostring(HttpService.HttpEnabled), "info")
+    -- 检查是否有可用的HTTP方法
+    local httpMethods = {
+        HttpService and HttpService.HttpEnabled,
+        game.HttpGet,
+        _G.HttpGet,
+        request,
+        http_request
+    }
     
-    if HttpService.HttpEnabled then
-        printStyled("HttpService已启用，无需操作", "success")
+    local hasHttpMethod = false
+    for _, method in ipairs(httpMethods) do
+        if method then
+            hasHttpMethod = true
+            break
+        end
+    end
+    
+    if hasHttpMethod then
+        printStyled("找到可用的HTTP方法", "success")
         return true
     else
-        printStyled("HttpService未启用，尝试启用...", "warning")
-        return forceEnableHttpService()
+        printStyled("没有找到可用的HTTP方法", "error")
+        return false
     end
 end
 
--- 测试HTTP连接（仅在启用后）
-local function testHttpConnection()
-    if not HttpService.HttpEnabled then
-        printStyled("HttpService未启用，跳过连接测试", "warning")
-        return false
+-- 使用执行器特定的HTTP方法
+local function executorHttpGet(url)
+    -- 尝试执行器特定的HTTP方法
+    if request then
+        printStyled("使用 request() 方法", "info")
+        local response = request({
+            Url = url,
+            Method = "GET"
+        })
+        if response and response.Body then
+            return response.Body
+        end
     end
     
-    printStyled("测试HTTP连接...", "info")
-    
-    -- 测试简单的HTTP请求
-    local success, result = pcall(function()
-        return HttpService:GetAsync("https://httpbin.org/get", true)
-    end)
-    
-    if success then
-        printStyled("HTTP连接测试成功", "success")
-        return true
-    else
-        printStyled("HTTP连接测试失败: " .. tostring(result), "error")
-        return false
+    if http_request then
+        printStyled("使用 http_request() 方法", "info")
+        local response = http_request({
+            Url = url,
+            Method = "GET"
+        })
+        if response and response.Body then
+            return response.Body
+        end
     end
+    
+    if syn and syn.request then
+        printStyled("使用 syn.request() 方法", "info")
+        local response = syn.request({
+            Url = url,
+            Method = "GET"
+        })
+        if response and response.Body then
+            return response.Body
+        end
+    end
+    
+    -- 回退到标准方法
+    return advancedHttpGet(url)
 end
 
--- 执行脚本（仅使用API方式）
-function executeScriptAPI(filename)
-    printStyled("使用API方式执行脚本: " .. filename, "info")
+-- 执行脚本（使用最佳HTTP方法）
+function executeScriptAdvanced(filename)
+    printStyled("使用高级方法执行脚本: " .. filename, "info")
     
-    -- 1. 确保HttpService启用
-    if not checkAndEnableHttpService() then
-        printStyled("无法启用HttpService，停止执行", "error")
-        printStyled("请手动在游戏设置中启用HTTP请求", "warning")
+    -- 1. 检查执行器环境
+    if not checkExecutorEnvironment() then
+        printStyled("执行器环境不支持HTTP请求", "error")
         return false
     end
     
-    -- 2. 测试连接
-    if not testHttpConnection() then
-        printStyled("HTTP连接测试失败，停止执行", "error")
+    -- 2. 测试HTTP方法
+    if not testHttpMethods() then
+        printStyled("所有HTTP方法测试失败", "error")
         return false
     end
     
@@ -163,7 +226,7 @@ function executeScriptAPI(filename)
     local listUrl = string.format("https://%s/api/list?k=%s", CONFIG.domain, CONFIG.apiKey)
     
     local success, response = pcall(function()
-        return HttpService:GetAsync(listUrl)
+        return executorHttpGet(listUrl)
     end)
     
     if not success then
@@ -196,13 +259,13 @@ function executeScriptAPI(filename)
         return false
     end
     
-    -- 5. 使用API获取文件内容
+    -- 5. 获取文件内容
     printStyled("获取文件内容...", "info")
     local fileUrl = string.format("https://%s/api/file/%s?k=%s", 
         CONFIG.domain, targetFile.fileId, CONFIG.apiKey)
     
     local success, fileResponse = pcall(function()
-        return HttpService:GetAsync(fileUrl)
+        return executorHttpGet(fileUrl)
     end)
     
     if not success then
@@ -234,51 +297,41 @@ function executeScriptAPI(filename)
     end
 end
 
--- 显示详细的启用指南
-function showEnableGuide()
-    printStyled("HttpService启用指南:", "info")
+-- 诊断HTTP问题
+function diagnoseHttpIssues()
+    printStyled("开始HTTP问题诊断...", "info")
     print("=" .. string.rep("=", 50))
     
-    if RunService:IsStudio() then
-        print("🎮 您在Roblox Studio中:")
-        print("  1. 点击 Home 选项卡")
-        print("  2. 点击 Game Settings 按钮")
-        print("  3. 选择 Security 选项卡")
-        print("  4. 勾选 'Allow HTTP Requests'")
-        print("  5. 点击 Save 保存")
-        print("  6. 重新运行游戏")
-    else
-        print("🎮 您在游戏中:")
-        print("  1. 确保使用支持HTTP的执行器")
-        print("  2. 检查执行器的HTTP设置")
-        print("  3. 尝试在不同游戏中测试")
-    end
+    -- 1. 基础检查
+    print("📋 基础检查:")
+    print("  HttpService存在: " .. tostring(HttpService ~= nil))
+    print("  HttpEnabled: " .. tostring(HttpService and HttpService.HttpEnabled or false))
+    print("  运行环境: " .. (RunService:IsStudio() and "Roblox Studio" or "游戏中"))
+    
+    -- 2. 执行器检查
+    checkExecutorEnvironment()
+    
+    -- 3. HTTP方法测试
+    print("\n🧪 HTTP方法测试:")
+    testHttpMethods()
     
     print("=" .. string.rep("=", 50))
-    printStyled("完成设置后，使用 executeScriptAPI('文件名.lua')", "info")
+    printStyled("诊断完成", "info")
 end
 
 -- 主程序
 print("=" .. string.rep("=", 50))
-printStyled("Yyds76 HttpService启用器", "info")
+printStyled("Yyds76 高级HTTP处理器", "info")
 print("=" .. string.rep("=", 50))
 
--- 立即检查并尝试启用
-local httpEnabled = checkAndEnableHttpService()
-
-if httpEnabled then
-    printStyled("系统就绪！可以使用API方式执行脚本", "success")
-    printStyled("使用命令: executeScriptAPI('文件名.lua')", "info")
-else
-    printStyled("HttpService启用失败", "error")
-    showEnableGuide()
-end
+-- 立即进行诊断
+diagnoseHttpIssues()
 
 -- 可用命令
 printStyled("可用命令:", "info")
-print("  • checkAndEnableHttpService() - 检查并启用HttpService")
-print("  • executeScriptAPI('文件名.lua') - 使用API执行脚本")
-print("  • showEnableGuide() - 显示详细启用指南")
-print("  • testHttpConnection() - 测试HTTP连接")
+print("  • executeScriptAdvanced('文件名.lua') - 使用高级方法执行脚本")
+print("  • diagnoseHttpIssues() - 诊断HTTP问题")
+print("  • testHttpMethods() - 测试HTTP方法")
+print("  • checkExecutorEnvironment() - 检查执行器环境")
 
 print("=" .. string.rep("=", 50))
