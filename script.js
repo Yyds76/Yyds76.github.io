@@ -5,6 +5,20 @@ let currentFileId = null
 const API_KEY = "yyds_steve_76"
 const PASSWORD = "SuperMiner"
 
+// 文件ID映射 - 使用特定标识符而不是文件名
+const FILE_ID_MAP = {
+  a1b2c3: "test",
+  d4e5f6: "example",
+  g7h8i9: "utility",
+  j0k1l2: "advanced",
+}
+
+// 反向映射
+const REVERSE_FILE_MAP = {}
+Object.keys(FILE_ID_MAP).forEach((key) => {
+  REVERSE_FILE_MAP[FILE_ID_MAP[key]] = key
+})
+
 // 初始化应用
 document.addEventListener("DOMContentLoaded", () => {
   initializeApp()
@@ -12,25 +26,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // 初始化应用程序
 function initializeApp() {
-  // 检查URL是否为raw模式
+  // 隐藏所有容器
+  document.getElementById("loginContainer").classList.add("hidden")
+  document.getElementById("mainContainer").classList.add("hidden")
+  document.getElementById("rawContainer").classList.add("hidden")
+
+  // 检查URL路径
   const path = window.location.pathname
-  if (path !== "/" && path !== "/index.html") {
-    handleRawRequest(path)
+  if (path.startsWith("/r/") || path.startsWith("/x/")) {
+    handleSpecialRequest(path)
     return
   }
 
-  // 检查是否已登录
+  // 检查认证状态
   checkAuthentication()
-
-  // 加载示例文件
   loadSampleFiles()
 
-  // 绑定回车键登录
-  document.getElementById("passwordInput").addEventListener("keypress", (e) => {
-    if (e.key === "Enter") {
-      authenticate()
-    }
-  })
+  // 绑定事件
+  const passwordInput = document.getElementById("passwordInput")
+  if (passwordInput) {
+    passwordInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        authenticate()
+      }
+    })
+  }
 }
 
 // 检查身份验证状态
@@ -128,12 +148,12 @@ function getApiKeyFromHeaders() {
 }
 
 // 显示Raw内容
-function displayRawContent(fileId) {
+function displayRawContent(fileKey) {
   document.getElementById("loginContainer").classList.add("hidden")
   document.getElementById("mainContainer").classList.add("hidden")
   document.getElementById("rawContainer").classList.remove("hidden")
 
-  const file = currentFiles[fileId]
+  const file = currentFiles[fileKey]
   const rawContent = document.getElementById("rawContent")
 
   if (file) {
@@ -213,20 +233,24 @@ function renderFileList() {
   const fileListDiv = document.getElementById("fileList")
   fileListDiv.innerHTML = ""
 
-  for (const [fileId, file] of Object.entries(currentFiles)) {
+  for (const [fileKey, file] of Object.entries(currentFiles)) {
+    const fileId = REVERSE_FILE_MAP[fileKey]
     const fileItem = document.createElement("div")
     fileItem.className = "file-item"
     fileItem.innerHTML = `
-            <span>📄 ${file.name}</span>
-            <div class="file-actions">
-                <button class="raw-btn" onclick="openRaw('${fileId}')">Raw</button>
-                <button class="delete-btn" onclick="deleteFile('${fileId}')">删除</button>
-            </div>
-        `
+      <div class="file-name">
+        <span>📄</span>
+        <span>${file.name}</span>
+      </div>
+      <div class="file-actions">
+        <button class="raw-btn" onclick="openRaw('${fileKey}')">Raw</button>
+        <button class="delete-btn" onclick="deleteFile('${fileKey}')">删除</button>
+      </div>
+    `
 
     fileItem.addEventListener("click", (e) => {
       if (!e.target.classList.contains("raw-btn") && !e.target.classList.contains("delete-btn")) {
-        selectFile(fileId)
+        selectFile(fileKey)
       }
     })
 
@@ -289,10 +313,12 @@ function saveFile(fileId) {
 }
 
 // 打开Raw模式
-function openRaw(fileId) {
-  // 使用pushState改变URL但不刷新页面
-  history.pushState(null, null, `/${fileId}`)
-  displayRawContent(fileId)
+function openRaw(fileKey) {
+  const fileId = REVERSE_FILE_MAP[fileKey]
+  if (fileId) {
+    history.pushState(null, null, `/r/${fileId}`)
+    displayRawContent(fileKey)
+  }
 }
 
 // 删除文件
@@ -344,7 +370,7 @@ window.addEventListener("popstate", (event) => {
       showLoginInterface()
     }
   } else {
-    handleRawRequest(path)
+    handleSpecialRequest(path)
   }
 })
 
@@ -378,4 +404,86 @@ window.API = {
 
     return { success: true, files: fileList }
   },
+}
+
+function handleSpecialRequest(path) {
+  const parts = path.split("/")
+  const mode = parts[1] // 'r' for raw, 'x' for execute
+  const fileId = parts[2]
+
+  if (!fileId || !FILE_ID_MAP[fileId]) {
+    show404()
+    return
+  }
+
+  const fileKey = FILE_ID_MAP[fileId]
+
+  // 检查权限
+  if (!checkAccess()) {
+    showAccessDenied()
+    return
+  }
+
+  if (mode === "r") {
+    displayRawContent(fileKey)
+  } else if (mode === "x") {
+    displayExecutableContent(fileKey)
+  }
+}
+
+function checkAccess() {
+  // 检查是否已登录
+  if (sessionStorage.getItem("authenticated") === "true") {
+    return true
+  }
+
+  // 检查是否为Roblox executor
+  const userAgent = navigator.userAgent
+  if (isRobloxExecutor(userAgent)) {
+    return true
+  }
+
+  // 检查API密钥
+  const urlParams = new URLSearchParams(window.location.search)
+  const apiKey = urlParams.get("api")
+  if (apiKey === API_KEY) {
+    return true
+  }
+
+  return false
+}
+
+// 显示404页面
+function show404() {
+  document.getElementById("loginContainer").classList.add("hidden")
+  document.getElementById("mainContainer").classList.add("hidden")
+  document.getElementById("rawContainer").classList.add("hidden")
+  document.getElementById("errorContainer").classList.remove("hidden")
+  document.getElementById("errorContent").textContent = "404 - 文件未找到"
+}
+
+// 显示访问被拒绝页面
+function showAccessDenied() {
+  document.getElementById("loginContainer").classList.add("hidden")
+  document.getElementById("mainContainer").classList.add("hidden")
+  document.getElementById("rawContainer").classList.add("hidden")
+  document.getElementById("errorContainer").classList.remove("hidden")
+  document.getElementById("errorContent").textContent = "访问被拒绝"
+}
+
+// 显示可执行内容
+function displayExecutableContent(fileKey) {
+  document.getElementById("loginContainer").classList.add("hidden")
+  document.getElementById("mainContainer").classList.add("hidden")
+  document.getElementById("rawContainer").classList.add("hidden")
+  document.getElementById("executableContainer").classList.remove("hidden")
+
+  const file = currentFiles[fileKey]
+  const executableContent = document.getElementById("executableContent")
+
+  if (file) {
+    executableContent.textContent = `-- 执行文件: ${file.name}\n${file.content}`
+  } else {
+    executableContent.textContent = '-- 文件未找到\nprint("错误: 文件不存在")'
+  }
 }
