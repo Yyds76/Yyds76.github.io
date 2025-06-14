@@ -189,6 +189,39 @@
             return true;
         }
 
+        // 验证Roblox来源
+        function validateRobloxOrigin(userAgent) {
+            if (!userAgent) return false;
+            
+            const robloxIndicators = [
+                'roblox', 'executor', 'synapse', 'krnl', 'oxygen', 
+                'scriptware', 'sentinel', 'protosmasher', 'httpservice'
+            ];
+            
+            const lowerUserAgent = userAgent.toLowerCase();
+            return robloxIndicators.some(indicator => lowerUserAgent.includes(indicator));
+        }
+
+        // 返回纯文本错误（用于Roblox）
+        function returnLuaError(message) {
+            document.body.innerHTML = '';
+            document.body.textContent = `-- Error: ${message}\nprint("❌ [Yyds76] ${message}")`;
+            document.body.style.fontFamily = 'monospace';
+            document.body.style.whiteSpace = 'pre';
+            document.body.style.margin = '0';
+            document.body.style.padding = '0';
+        }
+
+        // 返回纯Lua代码
+        function returnLuaCode(content) {
+            document.body.innerHTML = '';
+            document.body.textContent = content;
+            document.body.style.fontFamily = 'monospace';
+            document.body.style.whiteSpace = 'pre';
+            document.body.style.margin = '0';
+            document.body.style.padding = '0';
+        }
+
         // 处理Raw文件访问
         async function handleRawAccess() {
             // 检查登录状态
@@ -251,6 +284,88 @@
             }
         }
 
+        // 处理执行URL访问
+        async function handleExecAccess() {
+            const path = window.location.pathname;
+            const params = new URLSearchParams(window.location.search);
+            const apiKey = params.get('k') || params.get('key');
+            const userAgent = navigator.userAgent;
+
+            console.log('处理执行请求:', path);
+            console.log('API密钥:', apiKey ? '***' + apiKey.slice(-4) : '未提供');
+            console.log('用户代理:', userAgent);
+
+            // 验证API密钥
+            if (apiKey !== CONFIG.apiKey) {
+                console.error('API密钥验证失败');
+                returnLuaError('Invalid API key');
+                return;
+            }
+
+            // 验证Roblox来源
+            if (!validateRobloxOrigin(userAgent)) {
+                console.error('来源验证失败');
+                returnLuaError('Unauthorized origin - Only Roblox Executors allowed');
+                return;
+            }
+
+            try {
+                // 提取文件ID
+                const fileId = path.split('/exec/')[1];
+                console.log('文件ID:', fileId);
+
+                if (!fileId) {
+                    returnLuaError('Invalid file ID');
+                    return;
+                }
+
+                // 获取文件列表
+                const files = await githubManager.getFileList();
+                let targetFilename = null;
+
+                // 查找对应的文件
+                files.forEach((file, index) => {
+                    const secureId = githubManager.generateSecureFileId(file.name, index);
+                    if (secureId === fileId) {
+                        targetFilename = file.name;
+                    }
+                });
+
+                console.log('目标文件名:', targetFilename);
+
+                if (!targetFilename) {
+                    returnLuaError('File not found');
+                    return;
+                }
+
+                // 只允许.lua文件通过执行端点访问
+                if (!targetFilename.endsWith('.lua')) {
+                    returnLuaError('Only Lua files can be executed directly');
+                    return;
+                }
+
+                // 获取文件内容
+                const content = await githubManager.getFileContent(targetFilename);
+                console.log('文件内容长度:', content ? content.length : 0);
+
+                if (content) {
+                    // 隐藏加载提示
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    // 返回纯Lua代码
+                    returnLuaCode(content);
+                    
+                    console.log('成功返回Lua代码');
+                } else {
+                    returnLuaError('Failed to fetch file content');
+                }
+
+            } catch (error) {
+                console.error('处理执行访问错误:', error);
+                returnLuaError('Internal server error: ' + error.message);
+            }
+        }
+
         // 处理API访问
         async function handleApiAccess() {
             const path = window.location.pathname;
@@ -260,61 +375,19 @@
 
             // 验证API密钥
             if (apiKey !== CONFIG.apiKey) {
-                document.body.innerHTML = '<pre>-- Error: Invalid API key</pre>';
+                document.body.innerHTML = '<pre>{"error": "Invalid API key", "code": 401}</pre>';
                 return;
             }
 
             // 验证Roblox来源
-            const robloxIndicators = ['roblox', 'executor', 'synapse', 'krnl', 'oxygen'];
-            const isRoblox = robloxIndicators.some(indicator => 
-                userAgent.toLowerCase().includes(indicator)
-            );
-
-            if (!isRoblox) {
-                document.body.innerHTML = '<pre>-- Error: Unauthorized origin</pre>';
+            if (!validateRobloxOrigin(userAgent)) {
+                document.body.innerHTML = '<pre>{"error": "Unauthorized origin", "code": 403}</pre>';
                 return;
             }
 
             try {
-                if (path.startsWith('/exec/')) {
-                    // 直接执行URL - 返回纯Lua代码
-                    const fileId = path.split('/exec/')[1];
-                    const files = await githubManager.getFileList();
-                    let targetFilename = null;
-
-                    files.forEach((file, index) => {
-                        const secureId = githubManager.generateSecureFileId(file.name, index);
-                        if (secureId === fileId) {
-                            targetFilename = file.name;
-                        }
-                    });
-
-                    if (!targetFilename) {
-                        document.body.innerHTML = '<pre>-- Error: File not found</pre>';
-                        return;
-                    }
-
-                    // 只返回.lua文件的内容
-                    if (!targetFilename.endsWith('.lua')) {
-                        document.body.innerHTML = '<pre>-- Error: Only Lua files can be executed directly</pre>';
-                        return;
-                    }
-
-                    const content = await githubManager.getFileContent(targetFilename);
-                    if (content) {
-                        // 直接返回Lua代码内容，不包装在JSON中
-                        document.body.innerHTML = '';
-                        document.body.textContent = content;
-                        document.body.style.fontFamily = 'monospace';
-                        document.body.style.whiteSpace = 'pre';
-                        document.body.style.margin = '0';
-                        document.body.style.padding = '0';
-                    } else {
-                        document.body.innerHTML = '<pre>-- Error: Failed to fetch file content</pre>';
-                    }
-
-                } else if (path.startsWith('/api/file/')) {
-                    // 原有的API文件访问逻辑保持不变
+                if (path.startsWith('/api/file/')) {
+                    // 获取单个文件
                     const fileId = path.split('/api/file/')[1];
                     const files = await githubManager.getFileList();
                     let targetFilename = null;
@@ -345,7 +418,7 @@
                     }
 
                 } else if (path === '/api/list') {
-                    // 原有的文件列表API逻辑保持不变
+                    // 获取文件列表
                     const files = await githubManager.getFileList();
                     const fileList = files.map((file, index) => ({
                         filename: file.name,
@@ -362,22 +435,27 @@
                 }
 
             } catch (error) {
-                document.body.innerHTML = '<pre>-- Error: Internal server error</pre>';
+                document.body.innerHTML = '<pre>{"error": "Internal server error", "code": 500}</pre>';
             }
         }
 
         // 主路由处理
         async function handleRouting() {
             const path = window.location.pathname;
+            console.log('处理路由:', path);
 
             if (path.startsWith('/view/')) {
                 // Raw文件访问
                 await handleRawAccess();
-            } else if (path.startsWith('/api/') || path.startsWith('/exec/')) {
-                // API访问和执行URL访问
+            } else if (path.startsWith('/exec/')) {
+                // 执行URL访问
+                await handleExecAccess();
+            } else if (path.startsWith('/api/')) {
+                // API访问
                 await handleApiAccess();
             } else {
                 // 其他路径重定向到主页
+                console.log('重定向到主页');
                 window.location.href = '/';
             }
         }
