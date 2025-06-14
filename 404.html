@@ -189,19 +189,29 @@
             return true;
         }
 
+        // 验证Roblox来源
+        function validateRobloxOrigin(userAgent) {
+            if (!userAgent) return false;
+            
+            const robloxIndicators = [
+                'roblox', 'executor', 'synapse', 'krnl', 'oxygen', 
+                'scriptware', 'sentinel', 'protosmasher', 'httpservice'
+            ];
+            
+            const lowerUserAgent = userAgent.toLowerCase();
+            return robloxIndicators.some(indicator => lowerUserAgent.includes(indicator));
+        }
+
         // 处理Raw文件访问
         async function handleRawAccess() {
-            // 检查登录状态
             if (!checkAuth()) {
                 showAccessDenied();
                 return;
             }
 
-            // 从URL路径中提取文件ID
             const path = window.location.pathname;
             const pathParts = path.split('/');
             
-            // 支持 /view/fileId 格式
             let fileId = null;
             if (pathParts.length >= 3 && pathParts[1] === 'view') {
                 fileId = pathParts[2];
@@ -213,11 +223,9 @@
             }
 
             try {
-                // 获取文件列表并建立映射
                 const files = await githubManager.getFileList();
                 let targetFilename = null;
 
-                // 查找对应的文件
                 files.forEach((file, index) => {
                     const secureId = githubManager.generateSecureFileId(file.name, index);
                     if (secureId === fileId) {
@@ -230,10 +238,8 @@
                     return;
                 }
 
-                // 获取文件内容
                 const content = await githubManager.getFileContent(targetFilename);
                 if (content) {
-                    // 显示Raw内容
                     document.getElementById('loading').style.display = 'none';
                     document.body.innerHTML = '';
                     
@@ -251,7 +257,82 @@
             }
         }
 
-        // 处理API访问
+        // 处理执行端点访问（新增：直接返回Lua代码）
+        async function handleExecAccess() {
+            const path = window.location.pathname;
+            const params = new URLSearchParams(window.location.search);
+            const apiKey = params.get('k') || params.get('key');
+            const userAgent = navigator.userAgent;
+
+            // 验证API密钥
+            if (apiKey !== CONFIG.apiKey) {
+                // 清空页面并只返回错误注释
+                document.documentElement.innerHTML = '';
+                document.write('-- Error: Invalid API key');
+                document.close();
+                return;
+            }
+
+            // 验证Roblox来源
+            if (!validateRobloxOrigin(userAgent)) {
+                document.documentElement.innerHTML = '';
+                document.write('-- Error: Unauthorized origin - Only Roblox Executors allowed');
+                document.close();
+                return;
+            }
+
+            try {
+                const pathParts = path.split('/');
+                let fileId = null;
+                
+                if (pathParts.length >= 3 && pathParts[1] === 'exec') {
+                    fileId = pathParts[2];
+                }
+
+                if (!fileId) {
+                    document.documentElement.innerHTML = '';
+                    document.write('-- Error: Invalid file path');
+                    document.close();
+                    return;
+                }
+
+                const files = await githubManager.getFileList();
+                let targetFilename = null;
+
+                files.forEach((file, index) => {
+                    const secureId = githubManager.generateSecureFileId(file.name, index);
+                    if (secureId === fileId) {
+                        targetFilename = file.name;
+                    }
+                });
+
+                if (!targetFilename) {
+                    document.documentElement.innerHTML = '';
+                    document.write('-- Error: File not found');
+                    document.close();
+                    return;
+                }
+
+                const content = await githubManager.getFileContent(targetFilename);
+                if (content) {
+                    // 完全清空页面并只输出文件内容
+                    document.documentElement.innerHTML = '';
+                    document.write(content);
+                    document.close();
+                } else {
+                    document.documentElement.innerHTML = '';
+                    document.write('-- Error: Failed to fetch file content');
+                    document.close();
+                }
+
+            } catch (error) {
+                document.documentElement.innerHTML = '';
+                document.write('-- Error: Internal server error - ' + error.message);
+                document.close();
+            }
+        }
+
+        // 处理API访问（保持原有JSON格式）
         async function handleApiAccess() {
             const path = window.location.pathname;
             const params = new URLSearchParams(window.location.search);
@@ -260,24 +341,19 @@
 
             // 验证API密钥
             if (apiKey !== CONFIG.apiKey) {
-                document.body.innerHTML = '<pre>Error: Invalid API key</pre>';
+                document.body.innerHTML = '<pre>{"error": "Invalid API key", "code": 401}</pre>';
                 return;
             }
 
             // 验证Roblox来源
-            const robloxIndicators = ['roblox', 'executor', 'synapse', 'krnl', 'oxygen'];
-            const isRoblox = robloxIndicators.some(indicator => 
-                userAgent.toLowerCase().includes(indicator)
-            );
-
-            if (!isRoblox) {
-                document.body.innerHTML = '<pre>Error: Unauthorized origin</pre>';
+            if (!validateRobloxOrigin(userAgent)) {
+                document.body.innerHTML = '<pre>{"error": "Unauthorized origin", "code": 403}</pre>';
                 return;
             }
 
             try {
                 if (path.startsWith('/api/file/')) {
-                    // 获取单个文件
+                    // 获取单个文件（JSON格式）
                     const fileId = path.split('/api/file/')[1];
                     const files = await githubManager.getFileList();
                     let targetFilename = null;
@@ -313,7 +389,8 @@
                     const fileList = files.map((file, index) => ({
                         filename: file.name,
                         fileId: githubManager.generateSecureFileId(file.name, index),
-                        type: file.name.split('.').pop()
+                        type: file.name.split('.').pop(),
+                        execUrl: `https://${window.location.host}/exec/${githubManager.generateSecureFileId(file.name, index)}?k=${CONFIG.apiKey}`
                     }));
 
                     const result = {
@@ -334,10 +411,13 @@
             const path = window.location.pathname;
 
             if (path.startsWith('/view/')) {
-                // Raw文件访问
+                // Raw文件访问（需要登录）
                 await handleRawAccess();
+            } else if (path.startsWith('/exec/')) {
+                // 执行端点访问（直接返回Lua代码，供loadstring使用）
+                await handleExecAccess();
             } else if (path.startsWith('/api/')) {
-                // API访问
+                // API访问（JSON格式）
                 await handleApiAccess();
             } else {
                 // 其他路径重定向到主页
