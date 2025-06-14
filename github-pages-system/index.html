@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>代码存储库 - Yyds76</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            color: #4a5568;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            text-align: center;
+            color: #718096;
+        }
+
+        /* 登录表单样式 */
+        .login-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 400px;
+            margin: 100px auto;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .login-form h2 {
+            text-align: center;
+            color: #4a5568;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            color: #4a5568;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        /* 文件列表样式 */
+        .file-list {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            transition: background-color 0.3s;
+        }
+
+        .file-item:hover {
+            background-color: #f7fafc;
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .btn-view {
+            background: #48bb78;
+            color: white;
+        }
+
+        .btn-raw {
+            background: #ed8936;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .logout-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #e53e3e;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .error {
+            color: #e53e3e;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+
+        .upload-section h3 {
+            color: white;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            margin-bottom: 10px;
+        }
+
+        .upload-btn {
+            background: #48bb78;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- 登录界面 -->
+    <div id="loginContainer" class="login-container">
+        <form class="login-form" onsubmit="handleLogin(event)">
+            <h2>🔐 访问验证</h2>
+            <div class="form-group">
+                <label for="password">请输入访问密码：</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" class="login-btn">登录</button>
+            <div id="loginError" class="error hidden">密码错误，请重试</div>
+        </form>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="mainContainer" class="container hidden">
+        <button class="logout-btn" onclick="logout()">退出登录</button>
+        
+        <div class="header">
+            <h1>🚀 Yyds76 代码存储库</h1>
+            <p>安全的代码文件管理系统</p>
+        </div>
+
+        <div class="upload-section">
+            <h3>📁 上传新文件</h3>
+            <input type="file" id="fileInput" class="file-input" accept=".lua,.txt,.js,.py">
+            <button class="upload-btn" onclick="uploadFile()">上传文件</button>
+        </div>
+
+        <div class="file-list">
+            <h3 style="margin-bottom: 20px; color: #4a5568;">📂 文件列表</h3>
+            <div id="fileListContainer">
+                <!-- 文件列表将在这里动态生成 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 配置信息
+        const CONFIG = {
+            password: 'SuperMiner', // 访问密码
+            apiKey: 'yyds_steve_76', // API密钥
+            domain: 'www.hbhub.dpdns.org' // 代理域名
+        };
+
+        // 模拟文件存储（实际使用时需要后端支持）
+        let fileStorage = {
+            'test.lua': `-- 测试Lua脚本
+print("Hello from Yyds76!")
+game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50`,
+            'example.lua': `-- 示例脚本
+local player = game.Players.LocalPlayer
+print("玩家名称: " .. player.Name)`,
+            'config.txt': `# 配置文件
+version=1.0
+author=Yyds76`
+        };
+
+        // 检查登录状态
+        function checkAuth() {
+            const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
+            if (isLoggedIn) {
+                showMainInterface();
+            } else {
+                showLoginInterface();
+            }
+        }
+
+        // 处理登录
+        function handleLogin(event) {
+            event.preventDefault();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+
+            if (password === CONFIG.password) {
+                sessionStorage.setItem('authenticated', 'true');
+                showMainInterface();
+                errorDiv.classList.add('hidden');
+            } else {
+                errorDiv.classList.remove('hidden');
+                document.getElementById('password').value = '';
+            }
+        }
+
+        // 显示登录界面
+        function showLoginInterface() {
+            document.getElementById('loginContainer').classList.remove('hidden');
+            document.getElementById('mainContainer').classList.add('hidden');
+        }
+
+        // 显示主界面
+        function showMainInterface() {
+            document.getElementById('loginContainer').classList.add('hidden');
+            document.getElementById('mainContainer').classList.remove('hidden');
+            loadFileList();
+        }
+
+        // 退出登录
+        function logout() {
+            sessionStorage.removeItem('authenticated');
+            showLoginInterface();
+        }
+
+        // 加载文件列表
+        function loadFileList() {
+            const container = document.getElementById('fileListContainer');
+            container.innerHTML = '';
+
+            Object.keys(fileStorage).forEach(filename => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <span class="file-name">📄 ${filename}</span>
+                    <div class="file-actions">
+                        <button class="btn btn-view" onclick="viewFile('${filename}')">查看</button>
+                        <button class="btn btn-raw" onclick="viewRaw('${filename}')">Raw</button>
+                    </div>
+                `;
+                container.appendChild(fileItem);
+            });
+        }
+
+        // 查看文件（普通模式）
+        function viewFile(filename) {
+            const content = fileStorage[filename];
+            alert(`文件: ${filename}\n\n内容:\n${content}`);
+        }
+
+        // Raw模式查看文件
+        function viewRaw(filename) {
+            const fileId = btoa(filename).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+            const rawUrl = `${window.location.origin}/r/${fileId}`;
+            window.open(rawUrl, '_blank');
+        }
+
+        // 上传文件
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择一个文件');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fileStorage[file.name] = e.target.result;
+                loadFileList();
+                fileInput.value = '';
+                alert('文件上传成功！');
+            };
+            reader.readAsText(file);
+        }
+
+        // API端点处理
+        function handleApiRequest(path, apiKey) {
+            // 验证API密钥
+            if (apiKey !== CONFIG.apiKey) {
+                return { error: 'Invalid API key' };
+            }
+
+            // 解析文件路径
+            const filename = Object.keys(fileStorage).find(name => {
+                const fileId = btoa(name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+                return path.includes(fileId);
+            });
+
+            if (!filename) {
+                return { error: 'File not found' };
+            }
+
+            return {
+                success: true,
+                filename: filename,
+                content: fileStorage[filename]
+            };
+        }
+
+        // 处理URL路由
+        function handleRouting() {
+            const path = window.location.pathname;
+            const params = new URLSearchParams(window.location.search);
+            
+            // Raw文件访问
+            if (path.startsWith('/r/')) {
+                handleRawAccess(path);
+                return;
+            }
+
+            // API访问
+            if (path.startsWith('/api/')) {
+                const apiKey = params.get('key');
+                const result = handleApiRequest(path, apiKey);
+                
+                if (result.error) {
+                    document.body.innerHTML = `<h1>Error: ${result.error}</h1>`;
+                } else {
+                    document.body.innerHTML = `<pre>${result.content}</pre>`;
+                }
+                return;
+            }
+
+            // 正常页面访问
+            checkAuth();
+        }
+
+        // 处理Raw访问
+        function handleRawAccess(path) {
+            // 检查是否已登录
+            if (sessionStorage.getItem('authenticated') !== 'true') {
+                document.body.innerHTML = `
+                    <div style="text-align: center; margin-top: 100px;">
+                        <h1>🔒 访问受限</h1>
+                        <p>请先登录才能查看文件内容</p>
+                        <button onclick="window.location.href='/'" style="padding: 10px 20px; margin-top: 20px;">返回登录</button>
+                    </div>
+                `;
+                return;
+            }
+
+            const fileId = path.split('/r/')[1];
+            const filename = Object.keys(fileStorage).find(name => {
+                const id = btoa(name).replace(/[^a-zA-Z0-9]/g, '').substring(0, 8);
+                return id === fileId;
+            });
+
+            if (filename) {
+                // Raw模式只显示纯文本内容
+                document.body.innerHTML = `<pre style="margin: 0; padding: 0; font-family: monospace;">${fileStorage[filename]}</pre>`;
+                document.body.style.background = 'white';
+                document.body.style.color = 'black';
+            } else {
+                document.body.innerHTML = '<h1>404 - File Not Found</h1>';
+            }
+        }
+
+        // 页面加载时执行路由处理
+        window.addEventListener('load', handleRouting);
+
+        // 监听浏览器后退/前进按钮
+        window.addEventListener('popstate', handleRouting);
+    </script>
+</body>
+</html>
