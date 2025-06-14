@@ -2,8 +2,18 @@
 let isAuthenticated = false
 let currentFiles = {}
 let currentFileId = null
+let fileUpdateInterval = null
 const API_KEY = "yyds_steve_76"
 const PASSWORD = "SuperMiner"
+
+// GitHub配置
+const GITHUB_CONFIG = {
+  owner: "Yyds76",
+  repo: "Yyds76.github.io",
+  branch: "main", // 或者 "master"，根据您的默认分支
+  apiBase: "https://api.github.com",
+  rawBase: "https://raw.githubusercontent.com",
+}
 
 // 域名配置
 const DOMAIN_CONFIG = {
@@ -14,19 +24,9 @@ const DOMAIN_CONFIG = {
   },
 }
 
-// 文件ID映射
-const FILE_ID_MAP = {
-  a1b2c3: "test",
-  d4e5f6: "example",
-  g7h8i9: "utility",
-  j0k1l2: "advanced",
-}
-
-// 反向映射
-const REVERSE_FILE_MAP = {}
-Object.keys(FILE_ID_MAP).forEach((key) => {
-  REVERSE_FILE_MAP[FILE_ID_MAP[key]] = key
-})
+// 文件ID映射 - 动态生成
+let FILE_ID_MAP = {}
+let REVERSE_FILE_MAP = {}
 
 // 初始化应用
 document.addEventListener("DOMContentLoaded", () => {
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
 })
 
 // 初始化应用程序
-function initializeApp() {
+async function initializeApp() {
   try {
     console.log("📋 检查页面元素...")
 
@@ -66,13 +66,9 @@ function initializeApp() {
 
     if (path.startsWith("/r/") || path.startsWith("/x/")) {
       console.log("🔗 处理特殊请求...")
-      handleSpecialRequest(path)
+      await handleSpecialRequest(path)
       return
     }
-
-    // 加载示例文件
-    loadSampleFiles()
-    console.log("📁 示例文件已加载")
 
     // 检查认证状态
     checkAuthentication()
@@ -131,12 +127,34 @@ function showLoginInterface() {
 }
 
 // 显示主界面
-function showMainInterface() {
+async function showMainInterface() {
   console.log("🏠 显示主界面")
   hideAllContainers()
   document.getElementById("mainContainer").classList.remove("hidden")
-  renderFileList()
+
+  // 显示加载状态
+  showLoadingState()
+
+  // 加载GitHub文件
+  await loadGitHubFiles()
+
+  // 开始定期检测更新
+  startFileUpdateDetection()
+
   updateApiInfo()
+}
+
+// 显示加载状态
+function showLoadingState() {
+  const fileListDiv = document.getElementById("fileList")
+  if (fileListDiv) {
+    fileListDiv.innerHTML = `
+      <div class="loading-state">
+        <div class="loading"></div>
+        <p>正在从GitHub加载文件...</p>
+      </div>
+    `
+  }
 }
 
 // 身份验证
@@ -155,7 +173,7 @@ function authenticate() {
     errorDiv.textContent = ""
   } else {
     console.log("❌ 登录失败")
-    errorDiv.textContent = "密码错误，请重试"
+    errorDiv.textContent = "密码��误，请重试"
     passwordInput.value = ""
   }
 }
@@ -165,6 +183,10 @@ function logout() {
   console.log("👋 退出登录")
   isAuthenticated = false
   sessionStorage.removeItem("authenticated")
+
+  // 停止文件更新检测
+  stopFileUpdateDetection()
+
   showLoginInterface()
   document.getElementById("passwordInput").value = ""
 }
@@ -174,70 +196,221 @@ function goHome() {
   window.location.href = "/"
 }
 
-// 加载示例文件
-function loadSampleFiles() {
-  currentFiles = {
-    test: {
-      name: "test.lua",
-      content: `-- 测试脚本
-print("Hello from Yyds76 repository!")
-print("当前域名: ${DOMAIN_CONFIG.getCurrentDomain()}")
+// 从GitHub加载文件
+async function loadGitHubFiles() {
+  try {
+    console.log("📡 从GitHub加载文件...")
 
--- 示例函数
-function greet(name)
-    return "Hello, " .. name .. "!"
-end
+    // 获取存储库内容
+    const response = await fetch(
+      `${GITHUB_CONFIG.apiBase}/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`,
+      {
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "Yyds76-FileManager",
+        },
+      },
+    )
 
--- 调用函数
-local message = greet("Roblox Player")
-print(message)`,
-      type: "lua",
-    },
-    example: {
-      name: "example.lua",
-      content: `-- 示例脚本
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
+    if (!response.ok) {
+      throw new Error(`GitHub API错误: ${response.status} ${response.statusText}`)
+    }
 
--- 输出玩家信息
-print("玩家名称: " .. player.Name)
-print("用户ID: " .. player.UserId)
+    const files = await response.json()
+    console.log("📁 获取到文件列表:", files.length, "个项目")
 
--- 示例循环
-for i = 1, 5 do
-    print("计数: " .. i)
-    wait(1)
-end`,
-      type: "lua",
-    },
-    utility: {
-      name: "utility.lua",
-      content: `-- 实用工具函数
-local Utility = {}
+    // 过滤出.lua文件和其他代码文件
+    const codeFiles = files.filter(
+      (file) =>
+        file.type === "file" &&
+        (file.name.endsWith(".lua") ||
+          file.name.endsWith(".js") ||
+          file.name.endsWith(".py") ||
+          file.name.endsWith(".txt")),
+    )
 
--- 获取随机数
-function Utility.getRandomNumber(min, max)
-    return math.random(min, max)
-end
+    console.log("🔍 找到代码文件:", codeFiles.length, "个")
 
--- 格式化时间
-function Utility.formatTime(seconds)
-    local minutes = math.floor(seconds / 60)
-    local secs = seconds % 60
-    return string.format("%02d:%02d", minutes, secs)
-end
+    // 重置文件映射
+    FILE_ID_MAP = {}
+    REVERSE_FILE_MAP = {}
+    currentFiles = {}
 
--- 检查玩家是否在游戏中
-function Utility.isPlayerInGame(playerName)
-    local Players = game:GetService("Players")
-    return Players:FindFirstChild(playerName) ~= nil
-end
+    // 为每个文件生成ID并加载内容
+    for (let i = 0; i < codeFiles.length; i++) {
+      const file = codeFiles[i]
+      const fileId = generateFileId(i)
+      const fileName = file.name.replace(/\.[^/.]+$/, "") // 移除扩展名作为key
 
-return Utility`,
-      type: "lua",
-    },
+      FILE_ID_MAP[fileId] = fileName
+      REVERSE_FILE_MAP[fileName] = fileId
+
+      // 加载文件内容
+      try {
+        const content = await loadFileContent(file.download_url)
+        currentFiles[fileName] = {
+          name: file.name,
+          content: content,
+          type: file.name.split(".").pop(),
+          sha: file.sha,
+          url: file.download_url,
+          lastModified: new Date().toISOString(),
+        }
+        console.log("✅ 已加载:", file.name)
+      } catch (error) {
+        console.error("❌ 加载文件失败:", file.name, error)
+        currentFiles[fileName] = {
+          name: file.name,
+          content: `-- 加载失败: ${error.message}`,
+          type: file.name.split(".").pop(),
+          error: true,
+        }
+      }
+    }
+
+    console.log("🎉 所有文件加载完成，共", Object.keys(currentFiles).length, "个文件")
+    renderFileList()
+  } catch (error) {
+    console.error("❌ 加载GitHub文件失败:", error)
+    showError("无法从GitHub加载文件: " + error.message)
   }
-  console.log("📁 已加载", Object.keys(currentFiles).length, "个示例文件")
+}
+
+// 生成文件ID
+function generateFileId(index) {
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+  let result = ""
+  let num = index + 1000 // 确保至少4位数
+
+  while (num > 0) {
+    result = chars[num % chars.length] + result
+    num = Math.floor(num / chars.length)
+  }
+
+  return result.padStart(6, "a")
+}
+
+// 加载文件内容
+async function loadFileContent(downloadUrl) {
+  const response = await fetch(downloadUrl)
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+  return await response.text()
+}
+
+// 开始文件更新检测
+function startFileUpdateDetection() {
+  console.log("🔄 开始文件更新检测...")
+
+  // 清除现有的定时器
+  if (fileUpdateInterval) {
+    clearInterval(fileUpdateInterval)
+  }
+
+  // 每30秒检测一次更新
+  fileUpdateInterval = setInterval(async () => {
+    await checkForUpdates()
+  }, 30000)
+}
+
+// 停止文件更新检测
+function stopFileUpdateDetection() {
+  if (fileUpdateInterval) {
+    console.log("⏹️ 停止文件更新检测")
+    clearInterval(fileUpdateInterval)
+    fileUpdateInterval = null
+  }
+}
+
+// 检查文件更新
+async function checkForUpdates() {
+  try {
+    console.log("🔍 检查文件更新...")
+
+    const response = await fetch(
+      `${GITHUB_CONFIG.apiBase}/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/`,
+      {
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "Yyds76-FileManager",
+        },
+      },
+    )
+
+    if (!response.ok) {
+      console.warn("⚠️ 检查更新失败:", response.status)
+      return
+    }
+
+    const files = await response.json()
+    const codeFiles = files.filter(
+      (file) =>
+        file.type === "file" &&
+        (file.name.endsWith(".lua") ||
+          file.name.endsWith(".js") ||
+          file.name.endsWith(".py") ||
+          file.name.endsWith(".txt")),
+    )
+
+    let hasUpdates = false
+
+    // 检查现有文件是否有更新
+    for (const file of codeFiles) {
+      const fileName = file.name.replace(/\.[^/.]+$/, "")
+      const currentFile = currentFiles[fileName]
+
+      if (currentFile && currentFile.sha !== file.sha) {
+        console.log("🔄 检测到文件更新:", file.name)
+
+        // 重新加载文件内容
+        try {
+          const content = await loadFileContent(file.download_url)
+          currentFiles[fileName] = {
+            ...currentFile,
+            content: content,
+            sha: file.sha,
+            lastModified: new Date().toISOString(),
+          }
+          hasUpdates = true
+        } catch (error) {
+          console.error("❌ 更新文件失败:", file.name, error)
+        }
+      }
+    }
+
+    // 检查是否有新文件
+    const currentFileNames = Object.values(currentFiles).map((f) => f.name)
+    const newFiles = codeFiles.filter((file) => !currentFileNames.includes(file.name))
+
+    if (newFiles.length > 0) {
+      console.log("➕ 检测到新文件:", newFiles.length, "个")
+      await loadGitHubFiles() // 重新加载所有文件
+      return
+    }
+
+    // 检查是否有文件被删除
+    const githubFileNames = codeFiles.map((f) => f.name)
+    const deletedFiles = Object.values(currentFiles).filter((f) => !githubFileNames.includes(f.name))
+
+    if (deletedFiles.length > 0) {
+      console.log("🗑️ 检测到文件删除:", deletedFiles.length, "个")
+      await loadGitHubFiles() // 重新加载所有文件
+      return
+    }
+
+    if (hasUpdates) {
+      console.log("✅ 文件已更新")
+      renderFileList()
+
+      // 如果当前正在查看已更新的文件，刷新显示
+      if (currentFileId && currentFiles[currentFileId]) {
+        selectFile(currentFileId)
+      }
+    }
+  } catch (error) {
+    console.error("❌ 检查更新失败:", error)
+  }
 }
 
 // 渲染文件列表
@@ -248,6 +421,16 @@ function renderFileList() {
     return
   }
 
+  if (Object.keys(currentFiles).length === 0) {
+    fileListDiv.innerHTML = `
+      <div class="empty-state">
+        <p>📭 存储库中没有找到代码文件</p>
+        <p>支持的文件类型: .lua, .js, .py, .txt</p>
+      </div>
+    `
+    return
+  }
+
   fileListDiv.innerHTML = ""
   console.log("📋 渲染文件列表...")
 
@@ -255,19 +438,29 @@ function renderFileList() {
     const fileId = REVERSE_FILE_MAP[fileKey] || "unknown"
     const fileItem = document.createElement("div")
     fileItem.className = "file-item"
+
+    // 添加更新时间显示
+    const updateTime = file.lastModified ? new Date(file.lastModified).toLocaleTimeString() : "未知"
+
     fileItem.innerHTML = `
-      <div class="file-name">
-        <span>📄</span>
-        <span>${file.name}</span>
+      <div class="file-info">
+        <div class="file-name">
+          <span>📄</span>
+          <span>${file.name}</span>
+          ${file.error ? '<span class="error-badge">❌</span>' : ""}
+        </div>
+        <div class="file-meta">
+          <small>更新: ${updateTime}</small>
+        </div>
       </div>
       <div class="file-actions">
         <button class="raw-btn" onclick="openRaw('${fileKey}')">Raw</button>
-        <button class="delete-btn" onclick="deleteFile('${fileKey}')">删除</button>
+        <button class="refresh-btn" onclick="refreshFile('${fileKey}')">刷新</button>
       </div>
     `
 
     fileItem.addEventListener("click", (e) => {
-      if (!e.target.classList.contains("raw-btn") && !e.target.classList.contains("delete-btn")) {
+      if (!e.target.classList.contains("raw-btn") && !e.target.classList.contains("refresh-btn")) {
         selectFile(fileKey, fileItem)
       }
     })
@@ -276,6 +469,36 @@ function renderFileList() {
   }
 
   console.log("✅ 文件列表渲染完成")
+}
+
+// 刷新单个文件
+async function refreshFile(fileKey) {
+  const file = currentFiles[fileKey]
+  if (!file || !file.url) return
+
+  try {
+    console.log("🔄 刷新文件:", file.name)
+    const content = await loadFileContent(file.url)
+
+    currentFiles[fileKey] = {
+      ...file,
+      content: content,
+      lastModified: new Date().toISOString(),
+      error: false,
+    }
+
+    renderFileList()
+
+    // 如果当前正在查看这个文件，刷新显示
+    if (currentFileId === fileKey) {
+      selectFile(fileKey)
+    }
+
+    console.log("✅ 文件刷新完成:", file.name)
+  } catch (error) {
+    console.error("❌ 刷新文件失败:", file.name, error)
+    alert("刷新文件失败: " + error.message)
+  }
 }
 
 // 选择文件
@@ -299,11 +522,19 @@ function selectFile(fileId, itemElement) {
   // 显示文件内容
   const fileViewer = document.getElementById("fileViewer")
   if (fileViewer) {
+    const lastModified = file.lastModified ? new Date(file.lastModified).toLocaleString() : "未知"
+
     fileViewer.innerHTML = `
       <div class="file-header">
-        <h3>📄 ${file.name}</h3>
+        <div class="file-title">
+          <h3>📄 ${file.name}</h3>
+          <div class="file-info-badge">
+            <small>最后更新: ${lastModified}</small>
+            ${file.error ? '<span class="error-badge">加载错误</span>' : ""}
+          </div>
+        </div>
         <div class="file-controls">
-          <button onclick="editFile('${fileId}')">编辑</button>
+          <button onclick="refreshFile('${fileId}')">刷新</button>
           <button onclick="openRaw('${fileId}')">查看Raw</button>
         </div>
       </div>
@@ -316,86 +547,12 @@ function selectFile(fileId, itemElement) {
   console.log("📄 已选择文件:", file.name)
 }
 
-// 编辑文件
-function editFile(fileId) {
-  const file = currentFiles[fileId]
-  const fileViewer = document.getElementById("fileViewer")
-
-  if (!file || !fileViewer) return
-
-  fileViewer.innerHTML = `
-    <div class="file-header">
-      <h3>✏️ 编辑 ${file.name}</h3>
-      <div class="file-controls">
-        <button onclick="saveFile('${fileId}')">保存</button>
-        <button onclick="cancelEdit('${fileId}')">取消</button>
-      </div>
-    </div>
-    <div class="file-content">
-      <textarea id="codeEditor" class="code-editor">${file.content}</textarea>
-    </div>
-  `
-}
-
-// 取消编辑
-function cancelEdit(fileId) {
-  selectFile(fileId)
-}
-
-// 保存文件
-function saveFile(fileId) {
-  const codeEditor = document.getElementById("codeEditor")
-  if (!codeEditor) return
-
-  const content = codeEditor.value
-  currentFiles[fileId].content = content
-  selectFile(fileId)
-  alert("文件已保存！")
-  console.log("💾 文件已保存:", fileId)
-}
-
 // 打开Raw模式
 function openRaw(fileKey) {
   const fileId = REVERSE_FILE_MAP[fileKey]
   if (fileId) {
     history.pushState(null, null, `/r/${fileId}`)
     displayRawContent(fileKey)
-  }
-}
-
-// 删除文件
-function deleteFile(fileId) {
-  if (confirm("确定要删除这个文件吗？")) {
-    delete currentFiles[fileId]
-    renderFileList()
-
-    if (currentFileId === fileId) {
-      const fileViewer = document.getElementById("fileViewer")
-      if (fileViewer) {
-        fileViewer.innerHTML = `
-          <div class="welcome-message">
-            <h2>文件已删除</h2>
-            <p>选择其他文件以查看内容</p>
-          </div>
-        `
-      }
-    }
-    console.log("🗑️ 文件已删除:", fileId)
-  }
-}
-
-// 添加新文件
-function addFile() {
-  const fileName = prompt("请输入文件名（包含扩展名）:")
-  if (fileName) {
-    const fileId = fileName.replace(/\.[^/.]+$/, "")
-    currentFiles[fileId] = {
-      name: fileName,
-      content: `-- 新建文件: ${fileName}\nprint("Hello World!")`,
-      type: fileName.split(".").pop(),
-    }
-    renderFileList()
-    console.log("➕ 新文件已添加:", fileName)
   }
 }
 
@@ -407,9 +564,10 @@ function updateApiInfo() {
     apiInfoElement.innerHTML = `
       <p><strong>API Key:</strong> <code>yyds_steve_76</code></p>
       <p><strong>当前域名:</strong> <code>${currentDomain}</code></p>
+      <p><strong>GitHub存储库:</strong> <code>${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}</code></p>
       <p><strong>Raw 访问:</strong> <code>https://${currentDomain}/r/文件标识符</code></p>
       <p><strong>执行访问:</strong> <code>https://${currentDomain}/x/文件标识符</code></p>
-      <p><strong>示例:</strong> <code>https://${currentDomain}/r/a1b2c3</code></p>
+      <p><strong>自动更新:</strong> <code>每30秒检测一次</code></p>
     `
   }
 }
@@ -440,10 +598,15 @@ function isRobloxExecutor(userAgent) {
 }
 
 // 处理特殊请求
-function handleSpecialRequest(path) {
+async function handleSpecialRequest(path) {
   const parts = path.split("/")
   const mode = parts[1] // 'r' for raw, 'x' for execute
   const fileId = parts[2]
+
+  // 如果文件映射还没有加载，先加载
+  if (Object.keys(FILE_ID_MAP).length === 0) {
+    await loadGitHubFiles()
+  }
 
   if (!fileId || !FILE_ID_MAP[fileId]) {
     showError("404 - 文件未找到")
@@ -518,16 +681,16 @@ function displayExecutableContent(fileKey) {
 }
 
 // 处理浏览器后退按钮
-window.addEventListener("popstate", (event) => {
+window.addEventListener("popstate", async (event) => {
   const path = window.location.pathname
   if (path === "/" || path === "/index.html") {
     if (isAuthenticated) {
-      showMainInterface()
+      await showMainInterface()
     } else {
       showLoginInterface()
     }
   } else {
-    handleSpecialRequest(path)
+    await handleSpecialRequest(path)
   }
 })
 
@@ -537,5 +700,9 @@ window.addEventListener("error", (event) => {
   showError("发生了意外错误: " + event.error.message)
 })
 
-console.log("📜 脚本加载完成")
+// 页面卸载时清理定时器
+window.addEventListener("beforeunload", () => {
+  stopFileUpdateDetection()
+})
 
+console.log("📜 脚本加载完成")
