@@ -7,15 +7,6 @@
     <style>
         * {
             margin: 0;
-            padding: 0;<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>代码存储库 - Yyds76</title>
-    <style>
-        * {
-            margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
@@ -193,72 +184,6 @@
             margin-top: 10px;
         }
 
-        /* Raw模态框样式 */
-        .raw-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-
-        .raw-content {
-            background: white;
-            width: 95%;
-            height: 90%;
-            border-radius: 10px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .raw-header {
-            background: #f8f9fa;
-            padding: 15px 20px;
-            border-bottom: 1px solid #dee2e6;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .raw-header h3 {
-            margin: 0;
-            color: #333;
-        }
-
-        .raw-close {
-            background: #e53e3e;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .raw-body {
-            flex: 1;
-            overflow: auto;
-            padding: 0;
-        }
-
-        .raw-text {
-            font-family: 'Courier New', monospace;
-            white-space: pre-wrap;
-            padding: 20px;
-            margin: 0;
-            background: white;
-            color: black;
-            line-height: 1.4;
-            height: 100%;
-            overflow: auto;
-        }
-
         /* 加载动画 */
         .loading {
             text-align: center;
@@ -317,9 +242,8 @@
     <script>
         // 配置信息
         const CONFIG = {
-            password: 'SuperMiner', // 访问密码
-            apiKey: 'yyds_steve_76', // API密钥
-            domain: 'www.hbhub.dpdns.org', // 代理域名
+            password: 'SuperMiner',
+            apiKey: 'yyds_steve_76',
             github: {
                 username: 'Yyds76',
                 repo: 'Yyds76.github.io',
@@ -329,9 +253,8 @@
 
         // 文件ID映射表
         let fileIdMap = new Map();
-        let reverseFileIdMap = new Map();
 
-        // GitHub API相关函数
+        // GitHub文件管理器
         class GitHubFileManager {
             constructor(username, repo, branch = 'main') {
                 this.username = username;
@@ -341,7 +264,6 @@
                 this.rawBaseUrl = `https://raw.githubusercontent.com/${username}/${repo}/${branch}`;
             }
 
-            // 获取仓库文件列表
             async getFileList() {
                 try {
                     const response = await fetch(`${this.baseUrl}/contents?ref=${this.branch}`);
@@ -362,12 +284,10 @@
                 }
             }
 
-            // 获取文件内容
             async getFileContent(filename) {
                 try {
                     const response = await fetch(`${this.rawBaseUrl}/${filename}`);
                     if (!response.ok) throw new Error('文件不存在');
-                    
                     return await response.text();
                 } catch (error) {
                     console.error('获取文件内容错误:', error);
@@ -375,14 +295,12 @@
                 }
             }
 
-            // 生成安全的文件ID
             generateSecureFileId(filename, index) {
                 const combined = filename + index + 'yyds76';
                 const hash = this.simpleHash(combined);
                 return 'f' + hash.toString(16).substring(0, 7);
             }
 
-            // 简单哈希函数
             simpleHash(str) {
                 let hash = 0;
                 for (let i = 0; i < str.length; i++) {
@@ -394,7 +312,6 @@
             }
         }
 
-        // 初始化GitHub文件管理器
         const githubManager = new GitHubFileManager(
             CONFIG.github.username, 
             CONFIG.github.repo, 
@@ -411,7 +328,7 @@
                 if (loginTime && (currentTime - parseInt(loginTime)) > 30 * 60 * 1000) {
                     sessionStorage.removeItem('authenticated');
                     sessionStorage.removeItem('loginTime');
-                    logout();
+                    showLoginInterface();
                 }
             }, 5000);
         }
@@ -431,12 +348,10 @@
                 }
 
                 fileIdMap.clear();
-                reverseFileIdMap.clear();
 
                 files.forEach((file, index) => {
                     const secureId = githubManager.generateSecureFileId(file.name, index);
                     fileIdMap.set(secureId, file.name);
-                    reverseFileIdMap.set(file.name, secureId);
 
                     const fileItem = document.createElement('div');
                     fileItem.className = 'file-item';
@@ -465,7 +380,7 @@
             }
         }
 
-        // 查看文件（模态框）
+        // 查看文件
         async function viewFile(secureId) {
             try {
                 const filename = fileIdMap.get(secureId);
@@ -476,7 +391,27 @@
 
                 const content = await githubManager.getFileContent(filename);
                 if (content) {
-                    showModal(filename, content, false);
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+                        background: rgba(0,0,0,0.8); z-index: 1000; display: flex;
+                        align-items: center; justify-content: center; padding: 20px;
+                    `;
+                    
+                    modal.innerHTML = `
+                        <div style="background: white; border-radius: 10px; padding: 20px; max-width: 80%; max-height: 80%; overflow: auto;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                <h3 style="margin: 0; color: #333;">📄 ${filename}</h3>
+                                <button onclick="this.closest('div').parentElement.remove()" 
+                                        style="background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
+                                    关闭
+                                </button>
+                            </div>
+                            <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow: auto; max-height: 400px; font-family: monospace;">${content}</pre>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
                 } else {
                     alert('无法获取文件内容');
                 }
@@ -485,71 +420,11 @@
             }
         }
 
-        // Raw模式查看文件
-        async function viewRaw(secureId) {
-            // 检查登录状态
-            const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-            const loginTime = sessionStorage.getItem('loginTime');
-            const currentTime = Date.now();
-            
-            if (!isLoggedIn || !loginTime || (currentTime - parseInt(loginTime)) > 30 * 60 * 1000) {
-                alert('会话已过期，请重新登录');
-                logout();
-                return;
-            }
-
-            try {
-                const filename = fileIdMap.get(secureId);
-                if (!filename) {
-                    alert('文件不存在');
-                    return;
-                }
-
-                const content = await githubManager.getFileContent(filename);
-                if (content) {
-                    showModal(filename, content, true);
-                } else {
-                    alert('无法获取文件内容');
-                }
-            } catch (error) {
-                alert('获取文件失败: ' + error.message);
-            }
-        }
-
-        // 显示模态框
-        function showModal(filename, content, isRaw) {
-            const modal = document.createElement('div');
-            modal.className = 'raw-modal';
-            
-            modal.innerHTML = `
-                <div class="raw-content">
-                    <div class="raw-header">
-                        <h3>${isRaw ? '📄 Raw: ' : '👁️ 查看: '}${filename}</h3>
-                        <button class="raw-close" onclick="this.closest('.raw-modal').remove()">关闭</button>
-                    </div>
-                    <div class="raw-body">
-                        <pre class="raw-text">${content}</pre>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(modal);
-            
-            // 点击背景关闭
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.remove();
-                }
-            });
-            
-            // ESC键关闭
-            const handleEsc = (e) => {
-                if (e.key === 'Escape') {
-                    modal.remove();
-                    document.removeEventListener('keydown', handleEsc);
-                }
-            };
-            document.addEventListener('keydown', handleEsc);
+        // Raw模式查看文件（使用直接URL）
+        function viewRaw(secureId) {
+            // 使用直接的URL路径，GitHub Pages会通过404.html处理
+            const rawUrl = `${window.location.origin}/view/${secureId}`;
+            window.open(rawUrl, '_blank');
         }
 
         // 检查登录状态
@@ -601,863 +476,8 @@
             showLoginInterface();
         }
 
-        // 页面加载时检查认证状态
+        // 页面加载时检查认证
         window.addEventListener('load', checkAuth);
-
-        // 页面可见性变化时检查登录状态
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-                if (!isLoggedIn) {
-                    logout();
-                }
-            }
-        });
-
-        // API处理函数（供Roblox使用）
-        window.getFileForApi = async function(secureId, apiKey) {
-            if (apiKey !== CONFIG.apiKey) {
-                return { error: 'Invalid API key' };
-            }
-
-            try {
-                if (fileIdMap.size === 0) {
-                    const files = await githubManager.getFileList();
-                    files.forEach((file, index) => {
-                        const id = githubManager.generateSecureFileId(file.name, index);
-                        fileIdMap.set(id, file.name);
-                    });
-                }
-
-                const filename = fileIdMap.get(secureId);
-                if (!filename) {
-                    return { error: 'File not found' };
-                }
-
-                const content = await githubManager.getFileContent(filename);
-                if (!content) {
-                    return { error: 'Failed to fetch content' };
-                }
-
-                return {
-                    success: true,
-                    filename: filename,
-                    content: content,
-                    fileId: secureId
-                };
-            } catch (error) {
-                return { error: error.message };
-            }
-        };
-
-        // 获取文件列表API
-        window.getFileListForApi = async function(apiKey) {
-            if (apiKey !== CONFIG.apiKey) {
-                return { error: 'Invalid API key' };
-            }
-
-            try {
-                const files = await githubManager.getFileList();
-                const fileList = files.map((file, index) => {
-                    const secureId = githubManager.generateSecureFileId(file.name, index);
-                    return {
-                        filename: file.name,
-                        fileId: secureId,
-                        type: getFileType(file.name)
-                    };
-                });
-
-                return {
-                    success: true,
-                    files: fileList,
-                    count: fileList.length
-                };
-            } catch (error) {
-                return { error: error.message };
-            }
-        };
-
-        // 获取文件类型
-        function getFileType(filename) {
-            const extension = filename.split('.').pop().toLowerCase();
-            const typeMap = {
-                'lua': 'lua',
-                'js': 'javascript', 
-                'py': 'python',
-                'txt': 'text',
-                'md': 'markdown'
-            };
-            return typeMap[extension] || 'unknown';
-        }
-    </script>
-</body>
-</html>
-
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-        }
-
-        .header h1 {
-            color: #4a5568;
-            text-align: center;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            text-align: center;
-            color: #718096;
-        }
-
-        /* 登录表单样式 */
-        .login-container {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-            max-width: 400px;
-            margin: 100px auto;
-        }
-
-        .login-form {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .login-form h2 {
-            text-align: center;
-            color: #4a5568;
-            margin-bottom: 20px;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .form-group label {
-            color: #4a5568;
-            font-weight: 500;
-        }
-
-        .form-group input {
-            padding: 12px;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .login-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-
-        .login-btn:hover {
-            transform: translateY(-2px);
-        }
-
-        /* 文件列表样式 */
-        .file-list {
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            backdrop-filter: blur(10px);
-        }
-
-        .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            border-bottom: 1px solid #e2e8f0;
-            transition: background-color 0.3s;
-        }
-
-        .file-item:hover {
-            background-color: #f7fafc;
-        }
-
-        .file-name {
-            font-weight: 500;
-            color: #4a5568;
-        }
-
-        .file-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-
-        .btn-view {
-            background: #48bb78;
-            color: white;
-        }
-
-        .btn-raw {
-            background: #ed8936;
-            color: white;
-        }
-
-        .btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .logout-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #e53e3e;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .error {
-            color: #e53e3e;
-            text-align: center;
-            margin-top: 10px;
-        }
-
-        /* Raw页面样式 */
-        .raw-container {
-            background: white;
-            color: black;
-            font-family: 'Courier New', monospace;
-            white-space: pre-wrap;
-            margin: 0;
-            padding: 15px;
-            line-height: 1.4;
-            min-height: 100vh;
-        }
-
-        /* 访问拒绝页面样式 */
-        .access-denied {
-            text-align: center;
-            margin-top: 100px;
-            font-family: Arial, sans-serif;
-            background: white;
-            padding: 40px;
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            max-width: 500px;
-            margin: 100px auto;
-        }
-
-        .access-denied h1 {
-            color: #e53e3e;
-            margin-bottom: 20px;
-        }
-
-        .access-denied p {
-            color: #666;
-            margin-bottom: 30px;
-        }
-
-        .access-denied button {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        /* 加载动画 */
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-        }
-
-        .loading::after {
-            content: '';
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 2px solid #666;
-            border-radius: 50%;
-            border-top-color: transparent;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-    <!-- 登录界面 -->
-    <div id="loginContainer" class="login-container">
-        <form class="login-form" onsubmit="handleLogin(event)">
-            <h2>🔐 访问验证</h2>
-            <div class="form-group">
-                <label for="password">请输入访问密码：</label>
-                <input type="password" id="password" required>
-            </div>
-            <button type="submit" class="login-btn">登录</button>
-            <div id="loginError" class="error hidden">密码错误，请重试</div>
-        </form>
-    </div>
-
-    <!-- 主界面 -->
-    <div id="mainContainer" class="container hidden">
-        <button class="logout-btn" onclick="logout()">退出登录</button>
-        
-        <div class="header">
-            <h1>🚀 Yyds76 代码存储库</h1>
-            <p>安全的代码文件管理系统</p>
-        </div>
-
-        <div class="file-list">
-            <h3 style="margin-bottom: 20px; color: #4a5568;">📂 文件列表</h3>
-            <div id="fileListContainer">
-                <!-- 文件列表将在这里动态生成 -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Raw查看容器 -->
-    <div id="rawContainer" class="hidden">
-        <div id="rawContent" class="raw-container"></div>
-    </div>
-
-    <script>
-        // 配置信息
-        const CONFIG = {
-            password: 'SuperMiner', // 访问密码
-            apiKey: 'yyds_steve_76', // API密钥
-            domain: 'www.hbhub.dpdns.org', // 代理域名
-            github: {
-                username: 'Yyds76',
-                repo: 'Yyds76.github.io',
-                branch: 'main'
-            }
-        };
-
-        // 文件ID映射表（隐藏真实文件名）
-        let fileIdMap = new Map();
-        let reverseFileIdMap = new Map();
-
-        // GitHub API相关函数
-        class GitHubFileManager {
-            constructor(username, repo, branch = 'main') {
-                this.username = username;
-                this.repo = repo;
-                this.branch = branch;
-                this.baseUrl = `https://api.github.com/repos/${username}/${repo}`;
-                this.rawBaseUrl = `https://raw.githubusercontent.com/${username}/${repo}/${branch}`;
-            }
-
-            // 获取仓库文件列表
-            async getFileList() {
-                try {
-                    const response = await fetch(`${this.baseUrl}/contents?ref=${this.branch}`);
-                    if (!response.ok) throw new Error('获取文件列表失败');
-                    
-                    const files = await response.json();
-                    // 过滤出代码文件
-                    return files.filter(file => 
-                        file.type === 'file' && 
-                        (file.name.endsWith('.lua') || 
-                         file.name.endsWith('.txt') || 
-                         file.name.endsWith('.js') || 
-                         file.name.endsWith('.py') ||
-                         file.name.endsWith('.md'))
-                    );
-                } catch (error) {
-                    console.error('获取文件列表错误:', error);
-                    return [];
-                }
-            }
-
-            // 获取文件内容
-            async getFileContent(filename) {
-                try {
-                    const response = await fetch(`${this.rawBaseUrl}/${filename}`);
-                    if (!response.ok) throw new Error('文件不存在');
-                    
-                    return await response.text();
-                } catch (error) {
-                    console.error('获取文件内容错误:', error);
-                    return null;
-                }
-            }
-
-            // 生成安全的文件ID（不暴露文件名）
-            generateSecureFileId(filename, index) {
-                // 使用文件名和索引生成一个看起来随机的ID
-                const combined = filename + index + 'yyds76';
-                const hash = this.simpleHash(combined);
-                return 'f' + hash.toString(16).substring(0, 7);
-            }
-
-            // 简单哈希函数
-            simpleHash(str) {
-                let hash = 0;
-                for (let i = 0; i < str.length; i++) {
-                    const char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // 转换为32位整数
-                }
-                return Math.abs(hash);
-            }
-        }
-
-        // 初始化GitHub文件管理器
-        const githubManager = new GitHubFileManager(
-            CONFIG.github.username, 
-            CONFIG.github.repo, 
-            CONFIG.github.branch
-        );
-
-        // 持续检测登录状态
-        function startAuthCheck() {
-            setInterval(() => {
-                const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-                const loginTime = sessionStorage.getItem('loginTime');
-                const currentTime = Date.now();
-                
-                // 检查是否超过30分钟未活动
-                if (loginTime && (currentTime - parseInt(loginTime)) > 30 * 60 * 1000) {
-                    sessionStorage.removeItem('authenticated');
-                    sessionStorage.removeItem('loginTime');
-                    if (window.location.hash.startsWith('#/view/')) {
-                        showAccessDenied();
-                    }
-                }
-                
-                // 如果在受保护页面但未登录，显示拒绝访问
-                if (!isLoggedIn && window.location.hash.startsWith('#/view/')) {
-                    showAccessDenied();
-                }
-            }, 5000); // 每5秒检查一次
-        }
-
-        // 显示访问拒绝页面
-        function showAccessDenied() {
-            hideAllContainers();
-            document.body.innerHTML = `
-                <div class="access-denied">
-                    <h1>🔒 访问被拒绝</h1>
-                    <p>您需要先登录才能访问此内容</p>
-                    <p>会话可能已过期，请重新登录</p>
-                    <button onclick="window.location.hash = ''; window.location.reload();">返回登录页面</button>
-                </div>
-            `;
-            document.body.style.background = '#f5f5f5';
-        }
-
-        // 隐藏所有容器
-        function hideAllContainers() {
-            document.getElementById('loginContainer').classList.add('hidden');
-            document.getElementById('mainContainer').classList.add('hidden');
-            document.getElementById('rawContainer').classList.add('hidden');
-        }
-
-        // 加载文件列表（修改为从GitHub获取）
-        async function loadFileList() {
-            const container = document.getElementById('fileListContainer');
-            container.innerHTML = '<div class="loading">正在加载文件列表</div>';
-
-            try {
-                const files = await githubManager.getFileList();
-                container.innerHTML = '';
-
-                if (files.length === 0) {
-                    container.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">仓库中没有找到支持的文件类型</div>';
-                    return;
-                }
-
-                // 清空映射表
-                fileIdMap.clear();
-                reverseFileIdMap.clear();
-
-                files.forEach((file, index) => {
-                    // 生成安全的文件ID
-                    const secureId = githubManager.generateSecureFileId(file.name, index);
-                    fileIdMap.set(secureId, file.name);
-                    reverseFileIdMap.set(file.name, secureId);
-
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-item';
-                    
-                    // 获取文件图标
-                    const getFileIcon = (filename) => {
-                        if (filename.endsWith('.lua')) return '🌙';
-                        if (filename.endsWith('.js')) return '📜';
-                        if (filename.endsWith('.py')) return '🐍';
-                        if (filename.endsWith('.txt')) return '📄';
-                        if (filename.endsWith('.md')) return '📝';
-                        return '📄';
-                    };
-
-                    fileItem.innerHTML = `
-                        <span class="file-name">${getFileIcon(file.name)} ${file.name}</span>
-                        <div class="file-actions">
-                            <button class="btn btn-view" onclick="viewFile('${secureId}')">查看</button>
-                            <button class="btn btn-raw" onclick="viewRaw('${secureId}')">Raw</button>
-                        </div>
-                    `;
-                    container.appendChild(fileItem);
-                });
-            } catch (error) {
-                container.innerHTML = '<div style="text-align: center; padding: 20px; color: #e53e3e;">加载文件列表失败，请检查网络连接</div>';
-                console.error('加载文件列表失败:', error);
-            }
-        }
-
-        // 查看文件（修改为使用安全ID）
-        async function viewFile(secureId) {
-            try {
-                const filename = fileIdMap.get(secureId);
-                if (!filename) {
-                    alert('文件不存在');
-                    return;
-                }
-
-                const content = await githubManager.getFileContent(filename);
-                if (content) {
-                    // 创建模态框显示文件内容
-                    const modal = document.createElement('div');
-                    modal.style.cssText = `
-                        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                        background: rgba(0,0,0,0.8); z-index: 1000; display: flex;
-                        align-items: center; justify-content: center; padding: 20px;
-                    `;
-                    
-                    modal.innerHTML = `
-                        <div style="background: white; border-radius: 10px; padding: 20px; max-width: 80%; max-height: 80%; overflow: auto;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                                <h3 style="margin: 0; color: #333;">📄 ${filename}</h3>
-                                <button onclick="this.closest('div').parentElement.remove()" 
-                                        style="background: #e53e3e; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">
-                                    关闭
-                                </button>
-                            </div>
-                            <pre style="background: #f5f5f5; padding: 15px; border-radius: 5px; overflow: auto; max-height: 400px; font-family: monospace;">${content}</pre>
-                        </div>
-                    `;
-                    
-                    document.body.appendChild(modal);
-                } else {
-                    alert('无法获取文件内容');
-                }
-            } catch (error) {
-                alert('获取文件失败: ' + error.message);
-            }
-        }
-
-        // Raw模式查看文件（修改为使用hash路由）
-        function viewRaw(secureId) {
-            // 使用hash路由，这样GitHub Pages可以处理
-            window.location.hash = `#/view/${secureId}`;
-        }
-
-        // 处理Raw访问（修改为使用hash路由和持续验证）
-        async function handleRawAccess(secureId) {
-            // 持续检查登录状态
-            const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-            const loginTime = sessionStorage.getItem('loginTime');
-            const currentTime = Date.now();
-            
-            // 检查登录状态和会话有效性
-            if (!isLoggedIn || !loginTime || (currentTime - parseInt(loginTime)) > 30 * 60 * 1000) {
-                showAccessDenied();
-                return;
-            }
-
-            // 显示Raw容器
-            hideAllContainers();
-            document.getElementById('rawContainer').classList.remove('hidden');
-            
-            const rawContent = document.getElementById('rawContent');
-            rawContent.innerHTML = '<div class="loading">正在加载文件内容</div>';
-
-            try {
-                // 需要重新加载文件映射（因为可能是直接访问的URL）
-                if (fileIdMap.size === 0) {
-                    await loadFileMapping();
-                }
-                
-                const filename = fileIdMap.get(secureId);
-                
-                if (filename) {
-                    const content = await githubManager.getFileContent(filename);
-                    if (content) {
-                        // Raw模式只显示纯文本内容
-                        rawContent.textContent = content;
-                        rawContent.className = 'raw-container';
-                        
-                        // 继续监控登录状态
-                        startAuthCheck();
-                    } else {
-                        rawContent.innerHTML = '<h1 style="text-align: center; margin-top: 100px;">500 - 无法加载文件</h1>';
-                    }
-                } else {
-                    rawContent.innerHTML = '<h1 style="text-align: center; margin-top: 100px;">404 - 文件未找到</h1>';
-                }
-            } catch (error) {
-                rawContent.innerHTML = '<h1 style="text-align: center; margin-top: 100px;">500 - 服务器错误</h1>';
-                console.error('Raw访问错误:', error);
-            }
-        }
-
-        // 加载文件映射（用于Raw页面）
-        async function loadFileMapping() {
-            try {
-                const files = await githubManager.getFileList();
-                fileIdMap.clear();
-                reverseFileIdMap.clear();
-                
-                files.forEach((file, index) => {
-                    const secureId = githubManager.generateSecureFileId(file.name, index);
-                    fileIdMap.set(secureId, file.name);
-                    reverseFileIdMap.set(file.name, secureId);
-                });
-            } catch (error) {
-                console.error('加载文件映射失败:', error);
-            }
-        }
-
-        // API端点处理（修改为使用安全ID）
-        async function handleApiRequest(endpoint, apiKey, userAgent) {
-            // 验证API密钥
-            if (apiKey !== CONFIG.apiKey) {
-                return { error: 'Invalid API key', code: 401 };
-            }
-
-            // 验证请求来源（检查是否来自Roblox Executor）
-            if (!validateRobloxOrigin(userAgent)) {
-                return { error: 'Unauthorized origin', code: 403 };
-            }
-
-            try {
-                if (endpoint.startsWith('file/')) {
-                    // 获取单个文件
-                    const secureId = endpoint.split('file/')[1];
-                    
-                    // 确保文件映射已加载
-                    if (fileIdMap.size === 0) {
-                        await loadFileMapping();
-                    }
-                    
-                    const filename = fileIdMap.get(secureId);
-                    
-                    if (!filename) {
-                        return { error: 'File not found', code: 404 };
-                    }
-
-                    const content = await githubManager.getFileContent(filename);
-                    if (!content) {
-                        return { error: 'Failed to fetch file content', code: 500 };
-                    }
-
-                    return {
-                        success: true,
-                        filename: filename,
-                        content: content,
-                        fileId: secureId
-                    };
-                } else if (endpoint === 'list') {
-                    // 获取文件列表
-                    const files = await githubManager.getFileList();
-                    const fileList = files.map((file, index) => {
-                        const secureId = githubManager.generateSecureFileId(file.name, index);
-                        return {
-                            filename: file.name,
-                            fileId: secureId,
-                            type: getFileType(file.name)
-                        };
-                    });
-
-                    return {
-                        success: true,
-                        files: fileList,
-                        count: fileList.length
-                    };
-                }
-            } catch (error) {
-                return { error: 'Internal server error', code: 500 };
-            }
-        }
-
-        // 验证Roblox来源
-        function validateRobloxOrigin(userAgent) {
-            if (!userAgent) return false;
-            
-            const robloxIndicators = [
-                'roblox', 'executor', 'synapse', 'krnl', 'oxygen', 
-                'scriptware', 'sentinel', 'protosmasher'
-            ];
-            
-            const lowerUserAgent = userAgent.toLowerCase();
-            return robloxIndicators.some(indicator => lowerUserAgent.includes(indicator));
-        }
-
-        // 获取文件类型
-        function getFileType(filename) {
-            const extension = filename.split('.').pop().toLowerCase();
-            const typeMap = {
-                'lua': 'lua',
-                'js': 'javascript', 
-                'py': 'python',
-                'txt': 'text',
-                'md': 'markdown'
-            };
-            return typeMap[extension] || 'unknown';
-        }
-
-        // 检查登录状态
-        function checkAuth() {
-            const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-            if (isLoggedIn) {
-                // 更新活动时间
-                sessionStorage.setItem('loginTime', Date.now().toString());
-                showMainInterface();
-            } else {
-                showLoginInterface();
-            }
-        }
-
-        // 处理登录
-        function handleLogin(event) {
-            event.preventDefault();
-            const password = document.getElementById('password').value;
-            const errorDiv = document.getElementById('loginError');
-
-            if (password === CONFIG.password) {
-                sessionStorage.setItem('authenticated', 'true');
-                sessionStorage.setItem('loginTime', Date.now().toString());
-                showMainInterface();
-                errorDiv.classList.add('hidden');
-            } else {
-                errorDiv.classList.remove('hidden');
-                document.getElementById('password').value = '';
-            }
-        }
-
-        // 显示登录界面
-        function showLoginInterface() {
-            hideAllContainers();
-            document.getElementById('loginContainer').classList.remove('hidden');
-            // 重置body样式
-            document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        }
-
-        // 显示主界面
-        function showMainInterface() {
-            hideAllContainers();
-            document.getElementById('mainContainer').classList.remove('hidden');
-            // 重置body样式
-            document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-            loadFileList();
-            startAuthCheck(); // 开始监控登录状态
-        }
-
-        // 退出登录
-        function logout() {
-            sessionStorage.removeItem('authenticated');
-            sessionStorage.removeItem('loginTime');
-            window.location.hash = '';
-            showLoginInterface();
-        }
-
-        // 处理hash路由变化
-        function handleHashChange() {
-            const hash = window.location.hash;
-            
-            if (hash.startsWith('#/view/')) {
-                const secureId = hash.split('#/view/')[1];
-                handleRawAccess(secureId);
-            } else if (hash.startsWith('#/api/')) {
-                // API调用处理
-                const endpoint = hash.split('#/api/')[1];
-                const params = new URLSearchParams(window.location.search);
-                const apiKey = params.get('k');
-                const userAgent = navigator.userAgent;
-                
-                handleApiRequest(endpoint, apiKey, userAgent).then(result => {
-                    hideAllContainers();
-                    if (result.error) {
-                        document.body.innerHTML = `<pre style="padding: 20px; background: white; color: black; font-family: monospace;">Error: ${result.error}</pre>`;
-                    } else {
-                        document.body.innerHTML = `<pre style="padding: 0; margin: 0; background: white; color: black; font-family: monospace; white-space: pre-wrap;">${result.content}</pre>`;
-                    }
-                });
-            } else {
-                // 正常页面访问
-                checkAuth();
-            }
-        }
-
-        // 页面加载时执行路由处理
-        window.addEventListener('load', handleHashChange);
-
-        // 监听hash变化
-        window.addEventListener('hashchange', handleHashChange);
-
-        // 页面可见性变化时检查登录状态
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                const isLoggedIn = sessionStorage.getItem('authenticated') === 'true';
-                if (!isLoggedIn && window.location.hash.startsWith('#/view/')) {
-                    showAccessDenied();
-                }
-            }
-        });
     </script>
 </body>
 </html>
