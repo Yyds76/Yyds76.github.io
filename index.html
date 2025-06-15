@@ -162,28 +162,6 @@
             color: #666;
             margin: 20px 0;
         }
-
-        .url-info {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-
-        .url-info h3 {
-            color: #495057;
-            margin-bottom: 10px;
-        }
-
-        .url-example {
-            background: #e9ecef;
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            word-break: break-all;
-        }
     </style>
 </head>
 <body>
@@ -213,18 +191,6 @@
             <h2 style="margin-bottom: 20px; color: #333;">📁 文件管理器</h2>
             <div class="loading" id="loading">正在加载文件列表...</div>
             <div class="file-list" id="fileList"></div>
-            
-            <!-- URL使用说明 -->
-            <div class="url-info">
-                <h3>🔗 Roblox Executor 使用方法</h3>
-                <p style="margin-bottom: 10px;">在你的 Roblox Executor 中使用以下格式：</p>
-                <div class="url-example">
-                    loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/script1.html"))()
-                </div>
-                <p style="margin-top: 10px; font-size: 14px; color: #666;">
-                    💡 提示：这些链接会直接返回纯文本内容，源代码中也只有脚本内容，没有HTML标签。
-                </p>
-            </div>
         </div>
     </div>
 
@@ -328,33 +294,22 @@
             
             const fileItems = files.map((file, index) => {
                 const customId = `script${index + 1}`; // 自定义ID
-                const rawUrl = `./raw/script${index + 1}.html`;
+                const rawUrl = `./script${index + 1}.html?executor=true`;
                 return `
                     <div class="file-item">
                         <div>
                             <div class="file-name">📄 ${file.name}</div>
-                            <small style="color: #666;">大小: ${(file.size / 1024).toFixed(2)} KB | Raw URL: /raw/script${index + 1}.html</small>
+                            <small style="color: #666;">大小: ${(file.size / 1024).toFixed(2)} KB</small>
                         </div>
                         <div class="file-actions">
                             <a href="javascript:void(0)" onclick="viewFile('${file.download_url}')" class="btn-small">👁️ 查看</a>
                             <a href="${rawUrl}" class="btn-small btn-raw" target="_blank">🔗 Raw链接</a>
-                            <button onclick="copyRawUrl('${customId}')" class="btn-small" style="background: #6f42c1;">📋 复制URL</button>
                         </div>
                     </div>
                 `;
             }).join('');
             
             fileList.innerHTML = fileItems;
-        }
-
-        // 复制Raw URL
-        function copyRawUrl(scriptId) {
-            const url = `https://www.hbhub.dpdns.org/raw/script${scriptId.replace('script', '')}.html`;
-            navigator.clipboard.writeText(url).then(() => {
-                alert('✅ Raw URL已复制到剪贴板！\n\n' + url);
-            }).catch(() => {
-                prompt('📋 请手动复制以下URL:', url);
-            });
         }
 
         // 查看文件内容
@@ -406,7 +361,7 @@
 
         // 防止未授权访问
         document.addEventListener('DOMContentLoaded', function() {
-            if (!checkAuth()) {
+            if (!window.location.search.includes('raw=') && !checkAuth()) {
                 // 隐藏所有敏感内容
                 const sensitiveElements = document.querySelectorAll('.file-browser, #logoutBtn');
                 sensitiveElements.forEach(el => el.style.display = 'none');
