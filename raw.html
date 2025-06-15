@@ -1,32 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Raw File Access</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Courier New', monospace;
-            background: #fff;
-            color: #000;
-        }
-        .loading {
-            text-align: center;
-            padding: 50px;
-            color: #666;
-        }
-        .error {
-            text-align: center;
-            padding: 50px;
-            color: #dc3545;
-        }
-    </style>
 </head>
 <body>
-    <div class="loading" id="loading">正在加载...</div>
-    
     <script>
         // 配置信息
         const CONFIG = {
@@ -44,25 +21,32 @@
 
         // 检查登录状态
         function checkAuth() {
+            // 如果是Roblox Executor，直接允许访问
             if (isRobloxExecutor()) {
                 return true;
             }
+            // 检查会话存储中的登录状态
             return sessionStorage.getItem('authenticated') === 'true';
         }
 
-        // 获取Raw文件内容
-        async function getRawFile() {
+        // 获取并显示纯文本内容
+        async function loadRawContent() {
             const urlParams = new URLSearchParams(window.location.search);
             const scriptId = urlParams.get('id');
             
-            if (!scriptId) {
-                showError('❌ 缺少脚本ID参数');
+            // 检查访问权限
+            if (!checkAuth()) {
+                // 清空页面并显示错误信息（纯文本）
+                document.open();
+                document.write('-- 访问被拒绝：需要登录授权\n-- Access Denied: Login Required');
+                document.close();
                 return;
             }
 
-            // 检查访问权限
-            if (!checkAuth()) {
-                showError('🔒 访问被拒绝 - 需要登录授权');
+            if (!scriptId) {
+                document.open();
+                document.write('-- 错误：缺少脚本ID参数\n-- Error: Missing script ID parameter');
+                document.close();
                 return;
             }
 
@@ -79,28 +63,25 @@
                     const fileResponse = await fetch(file.download_url);
                     const content = await fileResponse.text();
                     
-                    // 清空页面并只显示纯文本内容
-                    document.body.innerHTML = '';
-                    document.body.appendChild(document.createTextNode(content));
+                    // 清空整个页面并只输出纯文本内容
+                    document.open();
+                    document.write(content);
+                    document.close();
                     
-                    // 设置正确的Content-Type
-                    if (document.contentType) {
-                        document.contentType = 'text/plain';
-                    }
                 } else {
-                    showError('❌ 文件未找到');
+                    document.open();
+                    document.write('-- 错误：文件未找到\n-- Error: File not found');
+                    document.close();
                 }
             } catch (error) {
-                showError('❌ 加载文件失败: ' + error.message);
+                document.open();
+                document.write('-- 错误：加载文件失败\n-- Error: Failed to load file\n-- ' + error.message);
+                document.close();
             }
         }
 
-        function showError(message) {
-            document.body.innerHTML = `<div class="error">${message}</div>`;
-        }
-
-        // 页面加载时执行
-        window.addEventListener('load', getRawFile);
+        // 页面加载完成后立即执行
+        window.addEventListener('load', loadRawContent);
     </script>
 </body>
 </html>
