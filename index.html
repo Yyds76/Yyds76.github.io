@@ -293,7 +293,8 @@
             }
             
             const fileItems = files.map((file, index) => {
-                const customId = `script${index + 1}`; // 自定义ID，不使用文件名
+                const customId = `script${index + 1}`; // 自定义ID
+                const rawUrl = `./raw.html?id=${customId}`;
                 return `
                     <div class="file-item">
                         <div>
@@ -302,7 +303,7 @@
                         </div>
                         <div class="file-actions">
                             <a href="javascript:void(0)" onclick="viewFile('${file.download_url}')" class="btn-small">👁️ 查看</a>
-                            <a href="/raw/${customId}" class="btn-small btn-raw" target="_blank">🔗 Raw链接</a>
+                            <a href="${rawUrl}" class="btn-small btn-raw" target="_blank">🔗 Raw链接</a>
                         </div>
                     </div>
                 `;
@@ -342,76 +343,25 @@
             }
         }
 
-        // 处理Raw文件访问
-        function handleRawAccess() {
-            const path = window.location.pathname;
-            
-            // 检查是否为raw访问路径
-            if (path.startsWith('/raw/')) {
-                // 如果不是Roblox Executor且未登录，重定向到登录页面
-                if (!isRobloxExecutor() && !checkAuth()) {
-                    window.location.href = '/';
-                    return;
-                }
-                
-                // 提取脚本ID并获取对应文件
-                const scriptId = path.replace('/raw/', '');
-                serveRawFile(scriptId);
-            }
-        }
-
-        // 提供Raw文件内容
-        async function serveRawFile(scriptId) {
-            try {
-                // 根据scriptId获取对应的文件
-                const response = await fetch(`https://api.github.com/repos/${CONFIG.githubUser}/${CONFIG.githubRepo}/contents`);
-                const files = await response.json();
-                const luaFiles = files.filter(file => file.type === 'file' && file.name.endsWith('.lua'));
-                
-                const scriptIndex = parseInt(scriptId.replace('script', '')) - 1;
-                
-                if (scriptIndex >= 0 && scriptIndex < luaFiles.length) {
-                    const file = luaFiles[scriptIndex];
-                    const fileResponse = await fetch(file.download_url);
-                    const content = await fileResponse.text();
-                    
-                    // 清空页面并只显示纯文本内容
-                    document.open();
-                    document.write(content);
-                    document.close();
-                } else {
-                    document.body.innerHTML = '404 - 文件未找到';
-                }
-            } catch (error) {
-                document.body.innerHTML = '500 - 服务器错误';
-                console.error('获取Raw文件失败:', error);
-            }
-        }
-
         // 页面加载时的初始化
         window.addEventListener('load', function() {
-            // 检查是否为raw访问
-            if (window.location.pathname.startsWith('/raw/')) {
-                handleRawAccess();
-                return;
-            }
-            
             // 检查认证状态
             if (checkAuth()) {
                 showFileBrowser();
             }
             
-            // 定期检查认证状态（防止会话过期）
+            // 定期检查认证状态（只在文件浏览器显示时）
             setInterval(function() {
-                if (!window.location.pathname.startsWith('/raw/') && !isRobloxExecutor() && !checkAuth()) {
+                const fileBrowser = document.getElementById('fileBrowser');
+                if (fileBrowser.style.display === 'block' && !isRobloxExecutor() && !checkAuth()) {
                     logout();
                 }
-            }, 5000); // 每5秒检查一次
+            }, 30000); // 每30秒检查一次
         });
 
         // 防止未授权访问
         document.addEventListener('DOMContentLoaded', function() {
-            if (!window.location.pathname.startsWith('/raw/') && !checkAuth()) {
+            if (!window.location.search.includes('raw=') && !checkAuth()) {
                 // 隐藏所有敏感内容
                 const sensitiveElements = document.querySelectorAll('.file-browser, #logoutBtn');
                 sensitiveElements.forEach(el => el.style.display = 'none');
