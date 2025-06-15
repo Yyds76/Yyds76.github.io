@@ -1,0 +1,46 @@
+-- 🚀 HB Hub Script 1
+-- 这是第一个示例脚本
+
+print("🎮 HB Hub Script 1 已加载!")
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+if player then
+    print("👤 玩家: " .. player.Name)
+    print("🆔 ID: " .. player.UserId)
+    
+    -- 创建简单的GUI提示
+    local ScreenGui = Instance.new("ScreenGui")
+    local Frame = Instance.new("Frame")
+    local TextLabel = Instance.new("TextLabel")
+    
+    ScreenGui.Name = "HBHubNotification"
+    ScreenGui.Parent = player.PlayerGui
+    
+    Frame.Size = UDim2.new(0, 300, 0, 80)
+    Frame.Position = UDim2.new(1, -320, 0, 20)
+    Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    Frame.BorderSizePixel = 0
+    Frame.Parent = ScreenGui
+    
+    -- 圆角效果
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 8)
+    Corner.Parent = Frame
+    
+    TextLabel.Size = UDim2.new(1, 0, 1, 0)
+    TextLabel.BackgroundTransparency = 1
+    TextLabel.Text = "✅ Script 1 执行成功!"
+    TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TextLabel.TextScaled = true
+    TextLabel.Font = Enum.Font.SourceSansBold
+    TextLabel.Parent = Frame
+    
+    -- 3秒后自动消失
+    game:GetService("Debris"):AddItem(ScreenGui, 3)
+    
+    print("✅ Script 1 执行完成!")
+else
+    print("❌ 无法获取玩家信息")
+end

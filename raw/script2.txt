@@ -1,0 +1,87 @@
+-- 🚀 HB Hub Script 2
+-- 这是第二个示例脚本 - 飞行功能
+
+print("🎮 HB Hub Script 2 - 飞行功能已加载!")
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- 飞行变量
+local flying = false
+local speed = 50
+local bodyVelocity
+local bodyAngularVelocity
+
+-- 创建飞行控制
+function startFlying()
+    if flying then return end
+    flying = true
+    
+    -- 创建BodyVelocity用于控制移动
+    bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(4000, 4000, 4000)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = rootPart
+    
+    -- 创建BodyAngularVelocity用于控制旋转
+    bodyAngularVelocity = Instance.new("BodyAngularVelocity")
+    bodyAngularVelocity.MaxTorque = Vector3.new(4000, 4000, 4000)
+    bodyAngularVelocity.AngularVelocity = Vector3.new(0, 0, 0)
+    bodyAngularVelocity.Parent = rootPart
+    
+    print("✈️ 飞行模式已启动! 按 F 键切换飞行状态")
+end
+
+function stopFlying()
+    if not flying then return end
+    flying = false
+    
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+    
+    if bodyAngularVelocity then
+        bodyAngularVelocity:Destroy()
+        bodyAngularVelocity = nil
+    end
+    
+    print("🚶 飞行模式已关闭")
+end
+
+-- 按键控制
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.F then
+        if flying then
+            stopFlying()
+        else
+            startFlying()
+        end
+    end
+end)
+
+-- 移动控制
+game:GetService("RunService").Heartbeat:Connect(function()
+    if flying and bodyVelocity then
+        local camera = workspace.CurrentCamera
+        local moveVector = humanoid.MoveDirection
+        
+        if moveVector.Magnitude > 0 then
+            local cameraDirection = camera.CFrame.LookVector
+            local cameraRight = camera.CFrame.RightVector
+            
+            local velocity = (cameraDirection * moveVector.Z + cameraRight * moveVector.X) * speed
+            bodyVelocity.Velocity = velocity
+        else
+            bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+print("🎯 飞行脚本加载完成! 按 F 键开始飞行")

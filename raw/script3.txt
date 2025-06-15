@@ -1,0 +1,157 @@
+-- 🚀 HB Hub Script 3
+-- 这是第三个示例脚本 - 透视功能
+
+print("🎮 HB Hub Script 3 - 透视功能已加载!")
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local espEnabled = false
+local espBoxes = {}
+
+-- 创建ESP框
+function createESP(targetPlayer)
+    if targetPlayer == player then return end
+    
+    local character = targetPlayer.Character
+    if not character then return end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    -- 创建BillboardGui
+    local billboardGui = Instance.new("BillboardGui")
+    billboardGui.Name = "ESP_" .. targetPlayer.Name
+    billboardGui.Adornee = humanoidRootPart
+    billboardGui.Size = UDim2.new(4, 0, 6, 0)
+    billboardGui.StudsOffset = Vector3.new(0, 0, 0)
+    billboardGui.AlwaysOnTop = true
+    billboardGui.Parent = game.CoreGui
+    
+    -- 创建框架
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+    frame.BorderSizePixel = 2
+    frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    frame.Parent = billboardGui
+    
+    -- 创建玩家名称标签
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0, 20)
+    nameLabel.Position = UDim2.new(0, 0, -0.1, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = targetPlayer.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextScaled = true
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextStrokeTransparency = 0
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.Parent = frame
+    
+    -- 创建距离标签
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Size = UDim2.new(1, 0, 0, 20)
+    distanceLabel.Position = UDim2.new(0, 0, 1.1, 0)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Text = "0m"
+    distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    distanceLabel.TextScaled = true
+    distanceLabel.Font = Enum.Font.SourceSans
+    distanceLabel.TextStrokeTransparency = 0
+    distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceLabel.Parent = frame
+    
+    espBoxes[targetPlayer] = {
+        gui = billboardGui,
+        distanceLabel = distanceLabel
+    }
+end
+
+-- 移除ESP
+function removeESP(targetPlayer)
+    if espBoxes[targetPlayer] then
+        espBoxes[targetPlayer].gui:Destroy()
+        espBoxes[targetPlayer] = nil
+    end
+end
+
+-- 更新距离
+function updateDistance()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local playerPosition = player.Character.HumanoidRootPart.Position
+    
+    for targetPlayer, espData in pairs(espBoxes) do
+        if targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local targetPosition = targetPlayer.Character.HumanoidRootPart.Position
+            local distance = math.floor((playerPosition - targetPosition).Magnitude)
+            espData.distanceLabel.Text = distance .. "m"
+        end
+    end
+end
+
+-- 启用ESP
+function enableESP()
+    espEnabled = true
+    
+    -- 为现有玩家创建ESP
+    for _, targetPlayer in pairs(Players:GetPlayers()) do
+        if targetPlayer.Character then
+            createESP(targetPlayer)
+        end
+    end
+    
+    print("👁️ 透视功能已启用")
+end
+
+-- 禁用ESP
+function disableESP()
+    espEnabled = false
+    
+    -- 移除所有ESP
+    for targetPlayer, _ in pairs(espBoxes) do
+        removeESP(targetPlayer)
+    end
+    
+    print("🚫 透视功能已禁用")
+end
+
+-- 玩家加入时创建ESP
+Players.PlayerAdded:Connect(function(targetPlayer)
+    if espEnabled then
+        targetPlayer.CharacterAdded:Connect(function()
+            wait(1) -- 等待角色完全加载
+            createESP(targetPlayer)
+        end)
+    end
+end)
+
+-- 玩家离开时移除ESP
+Players.PlayerRemoving:Connect(function(targetPlayer)
+    removeESP(targetPlayer)
+end)
+
+-- 按键控制 (按 E 键切换ESP)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.E then
+        if espEnabled then
+            disableESP()
+        else
+            enableESP()
+        end
+    end
+end)
+
+-- 更新距离显示
+RunService.Heartbeat:Connect(function()
+    if espEnabled then
+        updateDistance()
+    end
+end)
+
+print("🎯 透视脚本加载完成! 按 E 键切换透视功能")
