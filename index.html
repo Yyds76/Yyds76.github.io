@@ -219,7 +219,7 @@
                 <h3>🔗 Roblox Executor 使用方法</h3>
                 <p style="margin-bottom: 10px;">在你的 Roblox Executor 中使用以下格式：</p>
                 <div class="url-example">
-                    loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/script1.txt"))()
+                    loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/script1.html"))()
                 </div>
                 <p style="margin-top: 10px; font-size: 14px; color: #666;">
                     💡 提示：这些链接会直接返回纯文本内容，源代码中也只有脚本内容，没有HTML标签。
@@ -328,12 +328,12 @@
             
             const fileItems = files.map((file, index) => {
                 const customId = `script${index + 1}`; // 自定义ID
-                const rawUrl = `./raw/${customId}.txt`;
+                const rawUrl = `./raw/script${index + 1}.html`;
                 return `
                     <div class="file-item">
                         <div>
                             <div class="file-name">📄 ${file.name}</div>
-                            <small style="color: #666;">大小: ${(file.size / 1024).toFixed(2)} KB | Raw URL: /raw/${customId}.txt</small>
+                            <small style="color: #666;">大小: ${(file.size / 1024).toFixed(2)} KB | Raw URL: /raw/script${index + 1}.html</small>
                         </div>
                         <div class="file-actions">
                             <a href="javascript:void(0)" onclick="viewFile('${file.download_url}')" class="btn-small">👁️ 查看</a>
@@ -349,7 +349,7 @@
 
         // 复制Raw URL
         function copyRawUrl(scriptId) {
-            const url = `https://www.hbhub.dpdns.org/raw/${scriptId}.txt`;
+            const url = `https://www.hbhub.dpdns.org/raw/script${scriptId.replace('script', '')}.html`;
             navigator.clipboard.writeText(url).then(() => {
                 alert('✅ Raw URL已复制到剪贴板！\n\n' + url);
             }).catch(() => {
