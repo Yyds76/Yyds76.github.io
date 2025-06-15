@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Raw Access</title>
+</head>
+<body>
+    <script>
+        // 配置信息
+        const CONFIG = {
+            password: 'SuperMiner',
+            githubUser: 'Yyds76',
+            githubRepo: 'Yyds76.github.io'
+        };
+
+        // 检查是否为Roblox Executor
+        function isRobloxExecutor() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const robloxKeywords = ['roblox', 'executor', 'synapse', 'krnl', 'oxygen', 'sentinel'];
+            return robloxKeywords.some(keyword => userAgent.includes(keyword)) || 
+                   window.location.search.includes('executor=true');
+        }
+
+        // 检查登录状态
+        function checkAuth() {
+            if (isRobloxExecutor()) {
+                return true;
+            }
+            return sessionStorage.getItem('authenticated') === 'true';
+        }
+
+        // 获取并显示脚本内容
+        async function loadScript() {
+            // 检查访问权限
+            if (!checkAuth()) {
+                // 清空页面并显示错误信息（纯文本）
+                document.open();
+                document.write('-- 访问被拒绝：需要登录授权\n-- Access Denied: Login Required');
+                document.close();
+                return;
+            }
+
+            try {
+                // 获取GitHub仓库文件列表
+                const response = await fetch(`https://api.github.com/repos/${CONFIG.githubUser}/${CONFIG.githubRepo}/contents`);
+                const files = await response.json();
+                const luaFiles = files.filter(file => file.type === 'file' && file.name.endsWith('.lua'));
+                
+                // 获取第一个脚本文件（script1对应索引0）
+                if (luaFiles.length > 0) {
+                    const file = luaFiles[0];
+                    const fileResponse = await fetch(file.download_url);
+                    const content = await fileResponse.text();
+                    
+                    // 清空页面并只显示纯文本内容
+                    document.open();
+                    document.write(content);
+                    document.close();
+                } else {
+                    document.open();
+                    document.write('-- 文件未找到\n-- File Not Found');
+                    document.close();
+                }
+            } catch (error) {
+                document.open();
+                document.write('-- 加载失败：' + error.message + '\n-- Load Failed: ' + error.message);
+                document.close();
+            }
+        }
+
+        // 页面加载时执行
+        window.addEventListener('load', loadScript);
+    </script>
+</body>
+</html>
