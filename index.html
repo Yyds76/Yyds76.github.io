@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Script Repository - HBHub</title>
+    <title>HBHub Script Repository</title>
     <style>
         * {
             margin: 0;
@@ -50,6 +50,18 @@
             border-radius: 15px;
             padding: 30px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            display: none;
+        }
+        
+        .raw-content {
+            background: #000;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 0;
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 100vh;
             display: none;
         }
         
@@ -203,57 +215,63 @@
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🚀 HBHub Script Repository</h1>
-            <p>连接到仓库: Yyds76/Yyds76.github.io</p>
-        </div>
-        
-        <!-- 登录界面 -->
-        <div id="loginContainer" class="login-container">
-            <h2 style="text-align: center; margin-bottom: 30px; color: #333;">🔐 身份验证</h2>
-            <p style="text-align: center; color: #666; margin-bottom: 20px;">请输入密码以访问GitHub仓库文件</p>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="password">访问密码:</label>
-                    <input type="password" id="password" name="password" placeholder="输入密码..." required>
-                </div>
-                <button type="submit" class="btn">🔓 登录</button>
-            </form>
-            <div id="loginError" class="error"></div>
-        </div>
-        
-        <!-- 主内容区域 -->
-        <div id="mainContent" class="main-content">
-            <button class="logout-btn" onclick="logout()">🚪 退出登录</button>
-            
-            <h2>📁 GitHub仓库文件列表</h2>
-            <p style="color: #666; margin-bottom: 20px;">从 Yyds76/Yyds76.github.io 仓库加载的真实文件</p>
-            
-            <div id="loadingIndicator" class="loading">
-                🔄 正在从GitHub加载文件列表...
+    <!-- 普通页面内容 -->
+    <div id="normalContent">
+        <div class="container">
+            <div class="header">
+                <h1>🚀 HBHub Script Repository</h1>
+                <p>连接到仓库: Yyds76/Yyds76.github.io</p>
             </div>
             
-            <div id="fileList" class="file-list" style="display: none;">
-                <!-- 文件列表将通过GitHub API动态加载 -->
+            <!-- 登录界面 -->
+            <div id="loginContainer" class="login-container">
+                <h2 style="text-align: center; margin-bottom: 30px; color: #333;">🔐 身份验证</h2>
+                <p style="text-align: center; color: #666; margin-bottom: 20px;">请输入密码以访问GitHub仓库文件</p>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="password">访问密码:</label>
+                        <input type="password" id="password" name="password" placeholder="输入密码..." required>
+                    </div>
+                    <button type="submit" class="btn">🔓 登录</button>
+                </form>
+                <div id="loginError" class="error"></div>
             </div>
             
-            <div class="usage-info">
-                <h3>📖 使用说明</h3>
-                <p><strong>在Roblox Executor中使用:</strong></p>
-                <div class="code-block">
-loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/文件名"))()
+            <!-- 主内容区域 -->
+            <div id="mainContent" class="main-content">
+                <button class="logout-btn" onclick="logout()">🚪 退出登录</button>
+                
+                <h2>📁 GitHub仓库文件列表</h2>
+                <p style="color: #666; margin-bottom: 20px;">从 Yyds76/Yyds76.github.io 仓库加载的真实文件</p>
+                
+                <div id="loadingIndicator" class="loading">
+                    🔄 正在从GitHub加载文件列表...
                 </div>
-                <p><strong>示例 - 如果你有test.lua文件:</strong></p>
-                <div class="code-block">
-loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
+                
+                <div id="fileList" class="file-list" style="display: none;">
+                    <!-- 文件列表将通过GitHub API动态加载 -->
                 </div>
-                <p style="margin-top: 10px; color: #666; font-size: 14px;">
-                    ⚠️ 注意: Raw链接只能被Roblox Executor访问，普通浏览器需要登录验证
-                </p>
+                
+                <div class="usage-info">
+                    <h3>📖 使用说明</h3>
+                    <p><strong>在Roblox Executor中使用:</strong></p>
+                    <div class="code-block">
+loadstring(game:HttpGet("https://www.hbhub.dpdns.org/?raw=文件名"))()
+                    </div>
+                    <p><strong>示例 - 如果你有test.lua文件:</strong></p>
+                    <div class="code-block">
+loadstring(game:HttpGet("https://www.hbhub.dpdns.org/?raw=test"))()
+                    </div>
+                    <p style="margin-top: 10px; color: #666; font-size: 14px;">
+                        ⚠️ 注意: Raw链接只能被Roblox Executor访问，普通浏览器需要登录验证
+                    </p>
+                </div>
             </div>
         </div>
     </div>
+    
+    <!-- Raw内容显示区域 -->
+    <div id="rawContent" class="raw-content"></div>
 
     <script>
         // 配置信息
@@ -276,9 +294,7 @@ loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
                    userAgent.includes('fluxus') ||
                    userAgent.includes('scriptware') ||
                    // 检查HTTP请求头中的特殊标识
-                   document.referrer.includes('roblox') ||
-                   // 检查是否通过loadstring调用
-                   window.location.search.includes('executor=true');
+                   document.referrer.includes('roblox');
         }
         
         // 检查登录状态
@@ -294,8 +310,22 @@ loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
             return isLoggedIn;
         }
         
+        // 获取URL参数
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name);
+        }
+        
         // 初始化页面
         function initializePage() {
+            // 检查是否是Raw请求
+            const rawFile = getUrlParameter('raw');
+            if (rawFile) {
+                handleRawRequest(rawFile);
+                return;
+            }
+            
+            // 普通页面逻辑
             if (checkLoginStatus()) {
                 showMainContent();
             } else {
@@ -401,10 +431,10 @@ loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
                 fileItem.innerHTML = `
                     <div>
                         <div class="file-name">📄 ${file.name}</div>
-                        <div class="file-info">大小: ${fileSize} | 最后更新: ${new Date().toLocaleDateString()}</div>
+                        <div class="file-info">大小: ${fileSize} | SHA: ${file.sha.substring(0, 7)}</div>
                     </div>
                     <div class="file-actions">
-                        <a href="/raw/${fileId}" class="btn-small btn-raw" target="_blank">📋 Raw</a>
+                        <a href="?raw=${fileId}" class="btn-small btn-raw" target="_blank">📋 Raw</a>
                         <button class="btn-small" onclick="copyRawUrl('${fileId}')">📋 复制链接</button>
                     </div>
                 `;
@@ -424,7 +454,7 @@ loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
         
         // 复制Raw URL
         function copyRawUrl(fileId) {
-            const url = `https://${CONFIG.domain}/raw/${fileId}`;
+            const url = `https://${CONFIG.domain}/?raw=${fileId}`;
             navigator.clipboard.writeText(url).then(() => {
                 alert('✅ Raw链接已复制到剪贴板!');
             }).catch(() => {
@@ -433,25 +463,27 @@ loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
         }
         
         // 处理Raw请求
-        async function handleRawRequest() {
-            const path = window.location.pathname;
-            if (path.startsWith('/raw/')) {
-                const fileId = path.replace('/raw/', '');
-                
-                // 检查访问权限
-                if (!isRobloxExecutor() && !checkLoginStatus()) {
-                    // 未授权访问，重定向到登录页面
-                    window.location.href = '/';
-                    return;
-                }
-                
-                // 从GitHub获取实际文件内容
-                await displayRawContent(fileId);
+        async function handleRawRequest(fileName) {
+            // 检查访问权限
+            if (!isRobloxExecutor() && !checkLoginStatus()) {
+                // 未授权访问，显示登录页面
+                alert('❌ 访问被拒绝：需要登录或使用Roblox Executor');
+                window.location.href = '/';
+                return;
             }
+            
+            // 隐藏普通内容，显示Raw内容
+            document.getElementById('normalContent').style.display = 'none';
+            document.getElementById('rawContent').style.display = 'block';
+            
+            // 从GitHub获取实际文件内容
+            await displayRawContent(fileName);
         }
         
         // 显示Raw内容
         async function displayRawContent(fileId) {
+            const rawContentDiv = document.getElementById('rawContent');
+            
             try {
                 // 首先获取仓库文件列表，找到对应的文件
                 const response = await fetch(`${CONFIG.githubApiBase}/repos/${CONFIG.githubUser}/${CONFIG.githubRepo}/contents`);
@@ -464,7 +496,7 @@ loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
                 });
                 
                 if (!targetFile) {
-                    document.body.innerHTML = `-- 错误: 文件 '${fileId}' 未找到\nprint("❌ 文件不存在: ${fileId}")`;
+                    rawContentDiv.textContent = `-- 错误: 文件 '${fileId}' 未找到\nprint("❌ 文件不存在: ${fileId}")`;
                     return;
                 }
                 
@@ -472,34 +504,27 @@ loadstring(game:HttpGet("https://www.hbhub.dpdns.org/raw/test"))()
                 const fileResponse = await fetch(targetFile.download_url);
                 const fileContent = await fileResponse.text();
                 
-                // 清空页面，只显示纯文本内容
-                document.head.innerHTML = '<meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/plain; charset=utf-8">';
-                document.body.innerHTML = '';
-                document.body.style.cssText = 'margin:0;padding:0;font-family:monospace;white-space:pre-wrap;';
+                // 设置页面为纯文本模式
+                document.title = `Raw: ${targetFile.name}`;
+                document.body.style.cssText = 'margin:0;padding:20px;font-family:monospace;white-space:pre-wrap;background:#000;color:#00ff00;';
                 
-                // 创建纯文本节点
-                const textNode = document.createTextNode(fileContent);
-                document.body.appendChild(textNode);
+                // 显示纯文本内容
+                rawContentDiv.textContent = fileContent;
                 
             } catch (error) {
                 console.error('获取文件内容失败:', error);
-                document.body.innerHTML = `-- 错误: 无法获取文件内容\nprint("❌ 加载失败: ${error.message}")`;
+                rawContentDiv.textContent = `-- 错误: 无法获取文件内容\nprint("❌ 加载失败: ${error.message}")`;
             }
         }
         
         // 页面加载时初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 检查是否是Raw请求
-            if (window.location.pathname.startsWith('/raw/')) {
-                handleRawRequest();
-            } else {
-                initializePage();
-            }
+            initializePage();
         });
         
         // 定期检查登录状态（仅在非Raw页面）
         setInterval(function() {
-            if (!window.location.pathname.startsWith('/raw/') && !checkLoginStatus()) {
+            if (!getUrlParameter('raw') && !checkLoginStatus()) {
                 showLoginForm();
             }
         }, 5000); // 每5秒检查一次
