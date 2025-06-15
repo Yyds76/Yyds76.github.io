@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw File Access</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Courier New', monospace;
+            background: #fff;
+            color: #000;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #666;
+        }
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">正在加载...</div>
+    
+    <script>
+        // 配置信息
+        const CONFIG = {
+            githubUser: 'Yyds76',
+            githubRepo: 'Yyds76.github.io'
+        };
+
+        // 检查是否为Roblox Executor
+        function isRobloxExecutor() {
+            const userAgent = navigator.userAgent.toLowerCase();
+            const robloxKeywords = ['roblox', 'executor', 'synapse', 'krnl', 'oxygen', 'sentinel'];
+            return robloxKeywords.some(keyword => userAgent.includes(keyword)) || 
+                   window.location.search.includes('executor=true');
+        }
+
+        // 检查登录状态
+        function checkAuth() {
+            if (isRobloxExecutor()) {
+                return true;
+            }
+            return sessionStorage.getItem('authenticated') === 'true';
+        }
+
+        // 获取Raw文件内容
+        async function getRawFile() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const scriptId = urlParams.get('id');
+            
+            if (!scriptId) {
+                showError('❌ 缺少脚本ID参数');
+                return;
+            }
+
+            // 检查访问权限
+            if (!checkAuth()) {
+                showError('🔒 访问被拒绝 - 需要登录授权');
+                return;
+            }
+
+            try {
+                // 从GitHub API获取文件列表
+                const response = await fetch(`https://api.github.com/repos/${CONFIG.githubUser}/${CONFIG.githubRepo}/contents`);
+                const files = await response.json();
+                const luaFiles = files.filter(file => file.type === 'file' && file.name.endsWith('.lua'));
+                
+                const scriptIndex = parseInt(scriptId.replace('script', '')) - 1;
+                
+                if (scriptIndex >= 0 && scriptIndex < luaFiles.length) {
+                    const file = luaFiles[scriptIndex];
+                    const fileResponse = await fetch(file.download_url);
+                    const content = await fileResponse.text();
+                    
+                    // 清空页面并只显示纯文本内容
+                    document.body.innerHTML = '';
+                    document.body.appendChild(document.createTextNode(content));
+                    
+                    // 设置正确的Content-Type
+                    if (document.contentType) {
+                        document.contentType = 'text/plain';
+                    }
+                } else {
+                    showError('❌ 文件未找到');
+                }
+            } catch (error) {
+                showError('❌ 加载文件失败: ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            document.body.innerHTML = `<div class="error">${message}</div>`;
+        }
+
+        // 页面加载时执行
+        window.addEventListener('load', getRawFile);
+    </script>
+</body>
+</html>
