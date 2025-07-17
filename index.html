@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HB Hub - Roblox Lua 代码库</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 登录页面 -->
+    <div id="loginPage" class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <i class="fab fa-github"></i>
+                <h1>HB Hub</h1>
+                <p>Roblox Lua 代码库</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" placeholder="用户名" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="密码" required>
+                </div>
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    登录
+                </button>
+            </form>
+            <div id="loginError" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- 主页面 -->
+    <div id="mainPage" class="main-container" style="display: none;">
+        <!-- 头部 -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <i class="fab fa-github"></i>
+                    <h1>HB Hub - Roblox Lua 代码库</h1>
+                </div>
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    退出登录
+                </button>
+            </div>
+        </header>
+
+        <!-- 主内容 -->
+        <main class="main-content">
+            <div class="content-grid">
+                <!-- 文件列表 -->
+                <div class="file-list-card">
+                    <div class="card-header">
+                        <i class="fas fa-code"></i>
+                        <h2>Lua 脚本文件</h2>
+                        <button id="refreshBtn" class="refresh-btn">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <div class="card-content">
+                        <div id="loadingFiles" class="loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            加载中...
+                        </div>
+                        <div id="fileList" class="file-list"></div>
+                        <div id="noFiles" class="no-files" style="display: none;">
+                            没有找到 .lua 文件
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 代码预览 -->
+                <div class="code-preview-card">
+                    <div class="card-header">
+                        <h2>代码预览</h2>
+                        <div class="preview-actions">
+                            <button id="copyBtn" class="action-btn" style="display: none;">
+                                <i class="fas fa-copy"></i>
+                                复制
+                            </button>
+                            <button id="rawBtn" class="action-btn raw-btn" style="display: none;">
+                                <i class="fas fa-external-link-alt"></i>
+                                Raw 链接
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="noSelection" class="no-selection">
+                            <i class="fas fa-file-code"></i>
+                            <p>选择一个文件查看代码</p>
+                        </div>
+                        <div id="codeContainer" class="code-container" style="display: none;">
+                            <div id="fileName" class="file-name"></div>
+                            <pre id="codeContent" class="code-content"></pre>
+                        </div>
+                        <div id="loadingCode" class="loading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            加载代码中...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Raw 代码页面 -->
+    <div id="rawPage" class="raw-container" style="display: none;">
+        <pre id="rawContent"></pre>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

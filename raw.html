@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw Code - HB Hub</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+        
+        pre {
+            margin: 0;
+            padding: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <pre id="rawContent">Loading...</pre>
+    
+    <script>
+        // 配置信息 - 请替换为你的GitHub信息
+        const CONFIG = {
+            GITHUB_USERNAME: 'your-username',  // 替换为你的GitHub用户名
+            GITHUB_REPO: 'your-repo-name'     // 替换为你的仓库名
+        };
+
+        // 验证文件名是否安全
+        function isValidLuaFile(filename) {
+          if (!filename.endsWith('.lua')) {
+            return false;
+          }
+          
+          if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+            return false;
+          }
+          
+          const validPattern = /^[a-zA-Z0-9_.-]+\.lua$/;
+          return validPattern.test(filename);
+        }
+
+        // 白名单机制
+        const ALLOWED_FILES = [
+          // 在这里添加允许的文件名
+          // 'script1.lua',
+          // 'script2.lua',
+        ];
+
+        function isFileInWhitelist(filename) {
+          if (ALLOWED_FILES.length === 0) {
+            return true;
+          }
+          return ALLOWED_FILES.includes(filename);
+        }
+        
+        async function loadRawContent() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const filename = urlParams.get('file');
+            
+            if (!filename) {
+                document.getElementById('rawContent').textContent = 'Error: No file specified';
+                return;
+            }
+            
+            // 验证文件名
+            if (!isValidLuaFile(filename)) {
+              document.getElementById('rawContent').textContent = 'Error: Invalid file type. Only .lua files are allowed.';
+              return;
+            }
+            
+            if (!isFileInWhitelist(filename)) {
+              document.getElementById('rawContent').textContent = 'Error: File not in allowed list.';
+              return;
+            }
+            
+            try {
+                const response = await fetch(`https://raw.githubusercontent.com/${CONFIG.GITHUB_USERNAME}/${CONFIG.GITHUB_REPO}/main/${filename}`);
+                
+                if (!response.ok) {
+                    throw new Error('File not found');
+                }
+                
+                const content = await response.text();
+                document.getElementById('rawContent').textContent = content;
+                
+            } catch (error) {
+                document.getElementById('rawContent').textContent = 'Error: File not found or access denied';
+            }
+        }
+        
+        loadRawContent();
+    </script>
+</body>
+</html>
